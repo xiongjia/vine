@@ -1,0 +1,24 @@
+{
+  "name": "@vine/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint-config/base": "./eslint-config-base.js",
+    "./eslint-config/react-internal": "./eslint-config-react-internal.js",
+    "./typescript-config/base": "./typescript-config-base.json",
+    "./typescript-config/react-library": "./typescript-config-react-library.json"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "catalog:",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-only-warn": "^1.2.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-turbo": "^2.9.9",
+    "globals": "^15.14.0",
+    "typescript": "catalog:",
+    "typescript-eslint": "^8.0.0"
+  }
+}

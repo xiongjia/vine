@@ -1,0 +1,29 @@
+[
+  {
+    "id": "p1",
+    "name": "AI 边缘计算开发板",
+    "description": "张江某初创公司推出的AI推理开发板，支持本地部署小型模型",
+    "lng": 121.618,
+    "lat": 31.198,
+    "tags": ["科技", "AI", "硬件"],
+    "noteId": "pudong-tech"
+  },
+  {
+    "id": "p2",
+    "name": "手工葱油饼",
+    "description": "漕河泾弄堂里的老摊头，现做现卖，外酥里嫩",
+    "lng": 121.398,
+    "lat": 31.168,
+    "tags": ["美食", "小吃"],
+    "noteId": "caohejing-food"
+  },
+  {
+    "id": "p3",
+    "name": "五香豆",
+    "description": "上海站旁老字号食品店，传统五香豆，小时候的味道",
+    "lng": 121.458,
+    "lat": 31.252,
+    "tags": ["美食", "老字号", "零食"],
+    "noteId": "station-life"
+  }
+]

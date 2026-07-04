@@ -1,0 +1,14 @@
+{
+  "subagents": {
+    "agentOverrides": {
+      "reviewer": {
+        "model": "anthropic/claude-sonnet-4",
+        "systemPromptMode": "replace",
+        "systemPrompt": "Review vine project code. Focus on: map lifecycle (maplibre-gl), static data typing, bundle optimization (separate maplibre chunk), shadcn/ui patterns, accessibility. Return findings with file/line refs."
+      },
+      "worker": {
+        "model": "anthropic/claude-sonnet-4"
+      }
+    }
+  }
+}
