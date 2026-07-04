@@ -1,0 +1,71 @@
+---
+title: Button
+description: Button variants, sizes, and usage
+---
+
+import { Button } from "@vine/ui";
+
+# Button
+
+Displays a button or a component that looks like a button.
+
+## Variants
+
+```tsx preview
+<div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+  <Button>Default</Button>
+  <Button variant="destructive">Destructive</Button>
+  <Button variant="outline">Outline</Button>
+  <Button variant="secondary">Secondary</Button>
+  <Button variant="ghost">Ghost</Button>
+  <Button variant="link">Link</Button>
+</div>
+```
+
+## Sizes
+
+```tsx preview
+<div
+  style={{
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "0.5rem",
+  }}
+>
+  <Button size="sm">Small</Button>
+  <Button size="default">Default</Button>
+  <Button size="lg">Large</Button>
+  <Button size="icon">+</Button>
+</div>
+```
+
+## Disabled
+
+```tsx preview
+<div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+  <Button disabled>Disabled</Button>
+  <Button variant="destructive" disabled>
+    Disabled Destructive
+  </Button>
+</div>
+```
+
+## asChild
+
+Render as a link while keeping the button styles.
+
+```tsx preview
+<Button asChild>
+  <a href="#/overview">Link styled as button</a>
+</Button>
+```
+
+## API
+
+| Prop       | Type                                                                     | Default     |
+| ---------- | ------------------------------------------------------------------------ | ----------- |
+| `variant`  | `"default"` `"destructive"` `"outline"` `"secondary"` `"ghost"` `"link"` | `"default"` |
+| `size`     | `"default"` `"sm"` `"lg"` `"icon"`                                       | `"default"` |
+| `asChild`  | `boolean`                                                                | `false`     |
+| `disabled` | `boolean`                                                                | `false`     |

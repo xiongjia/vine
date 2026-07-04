@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: "11.5.2"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache turbo
+        uses: actions/cache@v5
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-check-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-check-
+
+      - name: Lint
+        run: pnpm exec turbo run lint
+
+      - name: Type check
+        run: pnpm exec turbo run check-types
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: "11.5.2"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache turbo
+        uses: actions/cache@v5
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-test-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-test-
+
+      - name: Run tests
+        run: pnpm exec turbo run test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: "11.5.2"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache turbo
+        uses: actions/cache@v5
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-build-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-build-
+
+      - name: Build
+        run: pnpm exec turbo run build
+
+      - name: Upload static site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/atlas/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/main'
+    needs: [check, test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,90 @@
+---
+title: Overview
+description: Vine UI component library overview
+---
+
+import { Card, CardDescription, CardHeader, CardTitle } from "@vine/ui";
+import {
+  AppWindow,
+  CheckSquare,
+  Layers,
+  Map,
+  PanelRight,
+  Square,
+} from "lucide-react";
+
+# Vine UI
+
+Shared UI component library built with shadcn/ui + Tailwind CSS v4.
+Click a component in the sidebar to explore its variants and usage.
+
+<div className="grid gap-4 sm:grid-cols-2">
+  <a href="#/button">
+    <Card className="h-full transition-shadow hover:shadow-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Square className="h-5 w-5 shrink-0" />
+          <span>Button</span>
+        </CardTitle>
+        <CardDescription>Button variants, sizes, and usage</CardDescription>
+      </CardHeader>
+    </Card>
+  </a>
+  <a href="#/card">
+    <Card className="h-full transition-shadow hover:shadow-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Layers className="h-5 w-5 shrink-0" />
+          <span>Card</span>
+        </CardTitle>
+        <CardDescription>Card layout and sub-components</CardDescription>
+      </CardHeader>
+    </Card>
+  </a>
+  <a href="#/map">
+    <Card className="h-full transition-shadow hover:shadow-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Map className="h-5 w-5 shrink-0" />
+          <span>Map</span>
+        </CardTitle>
+        <CardDescription>MapView with MapLibre GL</CardDescription>
+      </CardHeader>
+    </Card>
+  </a>
+  <a href="#/checkbox">
+    <Card className="h-full transition-shadow hover:shadow-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CheckSquare className="h-5 w-5 shrink-0" />
+          <span>Checkbox</span>
+        </CardTitle>
+        <CardDescription>Checkbox input with label support</CardDescription>
+      </CardHeader>
+    </Card>
+  </a>
+  <a href="#/dialog">
+    <Card className="h-full transition-shadow hover:shadow-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <AppWindow className="h-5 w-5 shrink-0" />
+          <span>Dialog</span>
+        </CardTitle>
+        <CardDescription>Modal window for focused interactions</CardDescription>
+      </CardHeader>
+    </Card>
+  </a>
+  <a href="#/sheet">
+    <Card className="h-full transition-shadow hover:shadow-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <PanelRight className="h-5 w-5 shrink-0" />
+          <span>Sheet</span>
+        </CardTitle>
+        <CardDescription>
+          Slide-over panel for dialogs and mobile interfaces
+        </CardDescription>
+      </CardHeader>
+    </Card>
+  </a>
+</div>
