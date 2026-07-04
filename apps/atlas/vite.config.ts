@@ -12,7 +12,6 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
           if (id.includes("maplibre-gl")) return "maplibre";
-          if (id.includes("react-dom") || id.includes("react/")) return "react";
           return "vendor";
         },
       },
