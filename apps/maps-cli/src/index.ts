@@ -9,7 +9,7 @@ import { verifyRegion } from "./commands/verify";
 import { listRegions } from "./commands/list";
 import { uploadRegion } from "./commands/upload";
 import { removeRegion } from "./commands/rm";
-import { syncAssets } from "./commands/sync-assets";
+import { syncAssets, collectOnlyValues } from "./commands/sync-assets";
 import { listRegionNames } from "./presets";
 
 const program = new Command();
@@ -64,7 +64,8 @@ program
 program
   .command("update-metadata [dir]")
   .description(
-    "regenerate metadata sidecars for every .pmtiles in a directory and rebuild pmtiles.json (default: current directory)",
+    "regenerate metadata sidecars for every .pmtiles in a directory and rebuild pmtiles.json " +
+      "(default: repo root; relative dirs resolve against the repo root)",
   )
   .option("--dry-run", "print what would change without writing anything")
   .action(async (dir: string | undefined, opts: { dryRun?: boolean }) => {
@@ -149,6 +150,12 @@ program
     "storage root directory (default: vine, or VINE_STORAGE_ROOT)",
   )
   .option("--prefix <path>", "object prefix (default: <root>)")
+  .option(
+    "--only <kind>",
+    "asset kinds to sync, repeatable or comma-separated (widget|pmtiles|glyphs; default: all)",
+    collectOnlyValues,
+    [] as string[],
+  )
   .option("--dry-run", "print only, do not sync")
   .action(
     async (opts: {
@@ -156,6 +163,7 @@ program
       bucket?: string;
       root?: string;
       prefix?: string;
+      only?: string[];
       dryRun?: boolean;
     }) => {
       await syncAssets(opts);

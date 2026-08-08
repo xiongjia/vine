@@ -62,6 +62,7 @@ pnpm exec turbo run test --filter=@vine/ui # Run UI tests only
 11. **Code review before push**: All changes should be reviewed before pushing to remote branches.
 12. **prettier formatting**: Run `pnpm format` before committing. VSCode saves with prettier automatically.
 13. **Debug with DOM dumps, not screenshots**: Models cannot view images by default — when debugging UI/layout issues, dump the rendered DOM (`chrome --headless --dump-dom`) or measure the live page via CDP `Runtime.evaluate` (element widths, classes, computed styles), and describe findings in **English** with concrete measured values. If WebGL is required (MapLibre maps), add `--enable-unsafe-swiftshader` to headless Chrome.
+14. **Never leak secrets from `.env`**: Do not hardcode, log, commit, or document real credentials from `.env` / `.env.local` (R2/S3 access keys, secret keys, tokens, endpoints with account IDs). Use placeholders (`...` / `<...>`) in code, tests, docs, and CLI output. Only `.env.example` may list variable names, and it must never contain real values. Before committing, scan `git diff` / `git status` to confirm no real secret value is staged; never echo or print env values in debug output or screenshots/DOM dumps.
 
 ## Commit Message Convention
 

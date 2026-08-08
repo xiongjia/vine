@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "catalog:",
+    "@smithy/node-http-handler": "catalog:",
     "commander": "catalog:",
-    "dotenv": "catalog:"
+    "dotenv": "catalog:",
+    "https-proxy-agent": "catalog:"
   },
   "devDependencies": {
     "@vine/config": "workspace:*",

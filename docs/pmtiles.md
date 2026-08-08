@@ -124,12 +124,15 @@ byte-range requests against the same origin.
 pnpm --filter=@vine/maps-cli cli list      # regions + sidecar summary
 pnpm --filter=@vine/maps-cli cli verify tokyo   # pmtiles show + sidecar cross-check
 pnpm --filter=@vine/maps-cli cli metadata shanghai --build 20260807  # (re)write sidecar
-pnpm --filter=@vine/maps-cli cli update-metadata [dir]  # (re)write sidecars for every .pmtiles in a dir + rebuild pmtiles.json (default: cwd)
+pnpm --filter=@vine/maps-cli cli update-metadata [dir]  # (re)write sidecars for every .pmtiles in a dir + rebuild pmtiles.json (default: repo root; relative dirs resolve against the repo root)
 pnpm --filter=@vine/maps-cli cli update-metadata [dir] --dry-run  # preview only, writes nothing
 ```
 
 `update-metadata` derives bbox/center/zoom from each file's own header (no
 preset needed), so it works for **any** pmtiles files dropped into a directory.
+Relative `[dir]` paths resolve against the repo root (the CLI runs under
+`pnpm --filter`, whose cwd is the package dir), so
+`update-metadata .maps-cache/pmtiles` works from anywhere.
 `buildDate` is preserved from an existing sidecar (defaults to `local` for new
 files); corrupt sidecars are regenerated from the header. `--dry-run` prints
 the per-file plan and the resulting catalog size without writing anything.
