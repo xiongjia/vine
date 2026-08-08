@@ -29,6 +29,39 @@ pnpm --filter=@vine/maps-cli cli upload shanghai --storage s3
 pnpm --filter=@vine/maps-cli cli rm tokyo --storage r2
 ```
 
+### Upload a single asset kind
+
+`sync-assets` syncs **all three** kinds by default. Pass `--only <kind>` to
+upload just one — repeatable or comma-separated, so a developer can re-publish
+one thing without touching the others:
+
+```bash
+pnpm --filter=@vine/maps-cli cli sync-assets --only widget     # widget bundle only
+pnpm --filter=@vine/maps-cli cli sync-assets --only pmtiles    # region tiles + catalog only
+pnpm --filter=@vine/maps-cli cli sync-assets --only glyphs     # fonts only
+pnpm --filter=@vine/maps-cli cli sync-assets --only pmtiles --only glyphs  # repeatable
+pnpm --filter=@vine/maps-cli cli sync-assets --only pmtiles,glyphs         # …or comma-separated
+pnpm --filter=@vine/maps-cli cli sync-assets                   # all three (default)
+```
+
+`sync-assets --only pmtiles` uploads the whole `pmtiles/` subtree; to push a
+single region's tiles instead, `upload <region>` is the pmtiles-only,
+per-region command.
+
+> **`sync-assets` never builds — it uploads whatever is already in place**
+> locally. The widget bundle is copied from `packages/ui/dist/widget/`, so run
+> `build:widget` first to push a fresh bundle:
+>
+> ```bash
+> pnpm exec turbo run build:widget --filter=@vine/ui                  # fresh bundle
+> pnpm --filter=@vine/maps-cli cli sync-assets --only widget --storage r2
+> ```
+>
+> Tiles and glyphs need no build step — they are synced straight from
+> `.maps-cache/` (run `extract`/`update-metadata` / the glyph warm-up first if
+> the cache is missing; `sync-assets` skips whatever directory does not exist
+> and tells you what to run).
+
 ### Uploaded layout
 
 After a sync (or per-region uploads), the bucket looks like this — `vine/` is
@@ -66,7 +99,9 @@ the pre-`vine` layout.
 ## 2. Credentials
 
 Loaded from `.env` / `.env.local` at the repo root (gitignored) or from CI
-secrets. Each storage kind has its own prefix:
+secrets. Each storage kind has its own prefix. Start from the committed
+template — `cp .env.example .env` and fill in real values; never put real
+credentials into `.env.example` itself (it is committed):
 
 ```bash
 # Cloudflare R2 (S3-compatible endpoint)
@@ -86,6 +121,28 @@ VINE_S3_BUCKET=vine-maps
 VINE_STORAGE_ROOT=vine
 ```
 
+### Proxy
+
+Uploads (`upload`, `rm`, `sync-assets`) honor the standard `HTTPS_PROXY` /
+`https_proxy` environment variable, read at process start like Node's own
+proxy conventions:
+
+```bash
+HTTPS_PROXY=http://127.0.0.1:1095 pnpm --filter=@vine/maps-cli cli upload shanghai --storage r2
+```
+
+Implementation note: the AWS SDK creates its own keep-alive agents, which
+bypass Node 24's `NODE_USE_ENV_PROXY=1` / `--use-env-proxy` auto-proxy — so
+maps-cli injects the proxy agent into the S3 client explicitly
+(`apps/maps-cli/src/lib/storage.ts`, `proxyAgent()`). `NO_PROXY` is not
+honored — once a proxy is configured, every upload request goes through it.
+
+Other network commands are unaffected:
+
+- `build-date` uses `fetch`, where `NODE_USE_ENV_PROXY=1 HTTPS_PROXY=…` works.
+- `extract` shells out to the Go `pmtiles` binary, which honors `HTTPS_PROXY` /
+  `HTTP_PROXY` natively.
+
 ## 3. Bucket configuration (manual, per official docs)
 
 ### Public read
@@ -97,8 +154,9 @@ differently on R2 vs S3.
 
 1. **r2.dev subdomain** (test only): Dashboard → R2 → _bucket_ → Settings →
    enable _R2.dev subdomain_. Public by default; URL
-   `https://pub-<hash>.r2.dev/<bucket>/<key>`. Rate-limited (~100 req/s) and
-   not intended for production traffic.
+   `https://pub-<hash>.r2.dev/<key>` (no bucket name in the path —
+   the dashboard shows the exact _Public Bucket URL_). Rate-limited
+   (~100 req/s) and not intended for production traffic.
 2. **Custom domain** (production, recommended): _bucket_ → Settings → _Custom
    Domains_, connect a domain. The domain maps directly to that bucket, so the
    URL is `https://<domain>/<key>` (no bucket name in the path).
@@ -129,19 +187,77 @@ off (or `--acl public-read` at upload; the CLI does not set ACLs):
 
 ### CORS
 
-Allow the widget/MapLibre to fetch the JS, tiles and fonts from another origin:
+Allow the widget/MapLibre to fetch the JS, tiles and fonts from another
+origin. Unrestricted (`*`) is the simplest; for production you can restrict to
+specific origins (exact-match only — see the rules below). **The JSON format
+differs between R2 and S3** (see the Cloudflare
+[CORS docs](https://developers.cloudflare.com/r2/buckets/cors/) for the R2
+shape).
+
+**R2** — Dashboard → bucket → Settings → CORS → _Add CORS policy_ → JSON tab.
+R2 expects an **array of rules, one origin per rule** — a single rule carrying
+several origins is rejected as an invalid policy:
+
+Unrestricted (single rule, `*`):
+
+```json
+[
+  {
+    "AllowedOrigins": ["*"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["Range"],
+    "ExposeHeaders": ["Content-Range", "Accept-Ranges"]
+  }
+]
+```
+
+Restricted — **add one rule per origin**:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://maps.your-site.com"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["Range"],
+    "ExposeHeaders": ["Content-Range", "Accept-Ranges"]
+  },
+  {
+    "AllowedOrigins": ["http://localhost:5173"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["Range"],
+    "ExposeHeaders": ["Content-Range", "Accept-Ranges"]
+  }
+]
+```
+
+**S3** — flat config object; **multiple origins in one rule are allowed**:
+`aws s3api put-bucket-cors --bucket vine-maps --cors-configuration file://cors.json`
 
 ```json
 {
-  "AllowedOrigins": ["*"],
+  "AllowedOrigins": ["https://maps.your-site.com", "http://localhost:5173"],
   "AllowedMethods": ["GET", "HEAD"],
   "AllowedHeaders": ["Range"],
   "ExposeHeaders": ["Content-Range", "Accept-Ranges"]
 }
 ```
 
-- R2: Dashboard → bucket → Settings → CORS.
-- S3: `aws s3api put-bucket-cors --bucket vine-maps --cors-configuration file://cors.json`.
+(Unrestricted on S3: set `"AllowedOrigins": ["*"]`.)
+
+Origin matching rules (both providers):
+
+- Origins must be **exact**: `scheme + host + port`, no trailing slash.
+  `https://maps.your-site.com/` fails; `https://` vs `http://` and `www.` vs
+  non-`www.` are different origins.
+- **No partial wildcards** — only `*` or exact origins are accepted;
+  `https://*.your-site.com` does not work. For a wildcard subdomain you would
+  have to list each subdomain explicitly (one rule per origin on R2).
+- The dev server (Vite default `http://localhost:5173`) is a separate origin —
+  keep it in the list while developing, or the browser blocks tile/glyph
+  requests from the local demo.
+- CORS is a browser-side gate only; it does not make objects private. Any
+  non-browser client (curl, pmtiles CLI, backend) can still GET public objects
+  regardless of the allowed origins.
 
 ### HTTP Range
 
@@ -185,9 +301,10 @@ or `VINE_STORAGE_ROOT`.)
 
 What `<bucket-domain>` is, per provider:
 
-- **R2 r2.dev**: `https://pub-<hash>.r2.dev/<bucket>` — the bucket name stays in
-  the path, so a full tile URL is
-  `pmtiles://https://pub-<hash>.r2.dev/<bucket>/vine/pmtiles/shanghai.pmtiles`.
+- **R2 r2.dev**: `https://pub-<hash>.r2.dev/<key>` — the bucket name is **not**
+  in the path (a full tile URL is
+  `pmtiles://https://pub-<hash>.r2.dev/vine/pmtiles/shanghai.pmtiles`; the
+  dashboard's _Public Bucket URL_ gives the exact base).
 - **R2 custom domain**: `https://<domain>` — the domain maps straight to the
   bucket, no bucket segment.
 - **S3**: `https://<bucket>.s3.<region>.amazonaws.com`.
@@ -219,3 +336,55 @@ Once the demo serves its tiles from object storage (build-time URLs above):
    `actions/upload-pages-artifact@v5`.
 2. Re-enable a `deploy` job (`actions/deploy-pages@v5`, `pages: write`,
    `id-token: write`) gated on `refs/heads/main`.
+
+## 7. maps-cli command reference
+
+Every `vine-maps` command, run via `pnpm --filter=@vine/maps-cli cli <cmd>`:
+
+| Command                 | What it does                                                                                                                                  | Key options                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `build-date`            | Print the latest Protomaps build date `YYYYMMDD` (network)                                                                                    | —                                                                    |
+| `extract <region>`      | Remote-crop a region pmtiles into `.maps-cache/pmtiles/` + write `<region>.metadata.json` (network)                                           | `--build`, `--maxzoom`, `--bbox`, `--dry-run`                        |
+| `metadata <region>`     | (Re)write `<region>.metadata.json` for an existing `.pmtiles`                                                                                 | `--build`, `--bbox`                                                  |
+| `update-metadata [dir]` | Rebuild sidecars for every `*.pmtiles` in a dir + regenerate `pmtiles.json` (default: repo root; relative dirs resolve against the repo root) | `--dry-run`                                                          |
+| `verify <region>`       | Run `pmtiles show` and cross-check the sidecar                                                                                                | —                                                                    |
+| `list`                  | List regions in `.maps-cache/pmtiles/`                                                                                                        | —                                                                    |
+| `upload <region>`       | Upload `<region>.pmtiles` + metadata + `pmtiles.json` (pmtiles-only, per region)                                                              | `--storage`, `--bucket`, `--root`, `--prefix`, `--dry-run`           |
+| `rm <region>`           | Delete a region's remote objects + drop it from `pmtiles.json`                                                                                | `--storage`, `--bucket`, `--root`, `--prefix`, `--dry-run`           |
+| `sync-assets`           | Sync widget + pmtiles + glyphs in one pass; `--only` restricts to one kind                                                                    | `--only`, `--storage`, `--bucket`, `--root`, `--prefix`, `--dry-run` |
+| `gcj2wgs <lng> <lat>`   | Convert GCJ-02 (Amap/Baidu) → WGS-84                                                                                                          | —                                                                    |
+
+Upload / delete commands share the same storage options:
+
+| Option               | Meaning                                                                   |
+| -------------------- | ------------------------------------------------------------------------- |
+| `--storage <r2\|s3>` | Storage type (default `r2`)                                               |
+| `--bucket <name>`    | Bucket name (overrides `.env` / `VINE_*_BUCKET`)                          |
+| `--root <dir>`       | Storage root, e.g. `--root maps` (default `vine`, or `VINE_STORAGE_ROOT`) |
+| `--prefix <path>`    | Full base-path override, wins over `--root`                               |
+| `--dry-run`          | Print the plan without uploading / deleting                               |
+
+Credentials come from `.env` / `.env.local` at the repo root (see
+[Credentials](#2-credentials)); network commands (`build-date`, `extract`) also
+need the external `pmtiles` binary (see [docs/pmtiles.md](./pmtiles.md) §1).
+Full per-command details and region presets: [docs/pmtiles.md](./pmtiles.md).
+
+### Local metadata & maintenance examples
+
+`update-metadata` regenerates **every** `<region>.metadata.json` sidecar in a
+directory (from each file's own header — no preset needed) and rebuilds the
+aggregate `pmtiles.json`. Relative `[dir]` paths resolve against the repo root
+(`pnpm --filter` runs with cwd = the package dir), default is the repo root
+itself; point it at the local cache to refresh everything before publishing:
+
+```bash
+pnpm --filter=@vine/maps-cli cli update-metadata .maps-cache/pmtiles   # update ALL metadata sidecars + rebuild pmtiles.json
+pnpm --filter=@vine/maps-cli cli update-metadata .maps-cache/pmtiles --dry-run  # preview only, writes nothing
+pnpm --filter=@vine/maps-cli cli list                 # what's in the cache
+pnpm --filter=@vine/maps-cli cli verify tokyo         # pmtiles show + sidecar cross-check
+pnpm --filter=@vine/maps-cli cli gcj2wgs 121.48 31.16 # GCJ-02 (Amap/Baidu) → WGS-84
+```
+
+Run `update-metadata` after regenerating local tiles (e.g. a fresh
+`extract` with a different `--bbox`) so the uploaded catalog stays in sync
+before `sync-assets --only pmtiles`.

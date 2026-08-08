@@ -9,13 +9,42 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import type { StorageConfig } from "./config";
 
+/**
+ * Proxy agent for R2/S3 requests, built from the standard `HTTPS_PROXY` /
+ * `https_proxy` env vars (read at process start, like Node's own proxy
+ * conventions). The AWS SDK creates its own keep-alive agents, which bypass
+ * Node 24's `NODE_USE_ENV_PROXY` auto-proxy — so the agent is injected
+ * explicitly via `requestHandler`. `HttpsProxyAgent` tunnels via CONNECT and
+ * also handles plain-http endpoints; `NO_PROXY` is intentionally not honored
+ * (every request goes through the proxy once it is configured).
+ */
+export function proxyAgent(): HttpsProxyAgent<string> | undefined {
+  const proxy = process.env.HTTPS_PROXY ?? process.env.https_proxy;
+  if (!proxy) return undefined;
+  return new HttpsProxyAgent<string>(proxy);
+}
+
 function makeS3(cfg: StorageConfig): S3Client {
+  const agent = proxyAgent();
   return new S3Client({
     region: cfg.region,
     ...(cfg.endpoint ? { endpoint: cfg.endpoint } : {}),
-    credentials: { accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey },
+    credentials: {
+      accessKeyId: cfg.accessKeyId,
+      secretAccessKey: cfg.secretAccessKey,
+    },
+    ...(agent
+      ? {
+          requestHandler: new NodeHttpHandler({
+            httpAgent: agent,
+            httpsAgent: agent,
+          }),
+        }
+      : {}),
   });
 }
 
@@ -44,13 +73,19 @@ export async function uploadFile(
       Bucket: cfg.bucket,
       Key: key,
       Body: createReadStream(localPath),
-      ContentType: key.endsWith(".json") ? "application/json" : "application/octet-stream",
+      ContentType: key.endsWith(".json")
+        ? "application/json"
+        : "application/octet-stream",
     }),
   );
   console.log(`✓ ${key} (${info.size} bytes)`);
 }
 
-export async function deleteObject(cfg: StorageConfig, key: string, dryRun = false): Promise<void> {
+export async function deleteObject(
+  cfg: StorageConfig,
+  key: string,
+  dryRun = false,
+): Promise<void> {
   if (dryRun) {
     console.log(`[dry-run] delete s3://${cfg.bucket}/${key}`);
     return;
@@ -109,13 +144,20 @@ export async function uploadDir(
   }
 }
 
-export async function listObjects(cfg: StorageConfig, prefix: string): Promise<string[]> {
+export async function listObjects(
+  cfg: StorageConfig,
+  prefix: string,
+): Promise<string[]> {
   const s3 = makeS3(cfg);
   const keys: string[] = [];
   let token: string | undefined;
   do {
     const out = await s3.send(
-      new ListObjectsV2Command({ Bucket: cfg.bucket, Prefix: prefix, ContinuationToken: token }),
+      new ListObjectsV2Command({
+        Bucket: cfg.bucket,
+        Prefix: prefix,
+        ContinuationToken: token,
+      }),
     );
     for (const o of out.Contents ?? []) if (o.Key) keys.push(o.Key);
     token = out.NextContinuationToken;

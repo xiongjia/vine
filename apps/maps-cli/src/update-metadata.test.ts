@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -37,10 +37,13 @@ async function makeFakePmtilesBin(): Promise<string> {
 
 describe("update-metadata command", () => {
   const originalBin = process.env.VINE_PMTILES_BIN;
+  const originalRoot = process.env.VINE_ROOT;
 
   afterEach(() => {
     if (originalBin === undefined) delete process.env.VINE_PMTILES_BIN;
     else process.env.VINE_PMTILES_BIN = originalBin;
+    if (originalRoot === undefined) delete process.env.VINE_ROOT;
+    else process.env.VINE_ROOT = originalRoot;
   });
 
   it("--dry-run writes nothing", async () => {
@@ -76,6 +79,26 @@ describe("update-metadata command", () => {
       expect(index.regions.map((r) => r.name)).toEqual(["shanghai"]);
     } finally {
       await rm(dir, { recursive: true, force: true });
+      await rm(path.dirname(bin), { recursive: true, force: true });
+    }
+  });
+
+  it("resolves a relative dir against the repo root", async () => {
+    const bin = await makeFakePmtilesBin();
+    process.env.VINE_PMTILES_BIN = bin;
+    const root = await mkdtemp(path.join(os.tmpdir(), "maps-cli-root-"));
+    process.env.VINE_ROOT = root;
+    try {
+      const cache = path.join(root, ".maps-cache", "pmtiles");
+      await mkdir(cache, { recursive: true });
+      await writeFile(path.join(cache, "shanghai.pmtiles"), "x");
+      // relative path from the repo root, as a developer would type it
+      await updateMetadataInDir({ dir: ".maps-cache/pmtiles" });
+      expect(existsSync(path.join(cache, "shanghai.metadata.json"))).toBe(true);
+      expect(existsSync(path.join(cache, INDEX_FILE_NAME))).toBe(true);
+    } finally {
+      delete process.env.VINE_ROOT;
+      await rm(root, { recursive: true, force: true });
       await rm(path.dirname(bin), { recursive: true, force: true });
     }
   });

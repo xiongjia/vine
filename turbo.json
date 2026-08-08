@@ -21,6 +21,8 @@
     "VINE_STORAGE_ROOT",
     "HTTPS_PROXY",
     "HTTP_PROXY",
+    "https_proxy",
+    "http_proxy",
     "NODE_USE_ENV_PROXY"
   ],
   "tasks": {

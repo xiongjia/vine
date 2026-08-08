@@ -11,6 +11,7 @@ import {
   scanIndex,
   writeMetadata,
 } from "../lib/metadata";
+import { findRepoRoot } from "../lib/repo-root";
 import { installHint, pmtilesAvailable, pmtilesBin } from "../lib/run-pmtiles";
 
 export interface UpdateMetadataOptions {
@@ -31,14 +32,24 @@ function showPmtiles(file: string): string | null {
 
 /**
  * Regenerate `<region>.metadata.json` for every `*.pmtiles` in a directory
- * (default: the current directory) and rebuild the aggregate `pmtiles.json`
- * index. Works for arbitrary pmtiles files — no preset needed, so a user can
- * drop any set of files in a dir and get all metadata in one pass.
+ * (default: the repo root) and rebuild the aggregate `pmtiles.json` index.
+ * Works for arbitrary pmtiles files — no preset needed, so a user can drop
+ * any set of files in a dir and get all metadata in one pass.
+ *
+ * Relative `dir` values resolve against the repo root, not the process cwd:
+ * `pnpm --filter` (and turbo) run with cwd = the package dir, so a user typing
+ * `update-metadata .maps-cache/pmtiles` from the repo root means the repo-root
+ * path — `findRepoRoot` walks up from the package dir to find it.
  */
 export async function updateMetadataInDir(
   opts: UpdateMetadataOptions,
 ): Promise<void> {
-  const dir = opts.dir ?? process.cwd();
+  // Absolute paths work from anywhere; relative ones resolve against the repo
+  // root (`pnpm --filter` runs with cwd = the package dir). `path.resolve`
+  // would return an absolute `dir` unchanged, but `findRepoRoot` must not run
+  // for standalone absolute-dir usage outside the repo.
+  const base = opts.dir ?? ".";
+  const dir = path.isAbsolute(base) ? base : path.resolve(findRepoRoot(), base);
   const dryRun = opts.dryRun ?? false;
   if (!pmtilesAvailable()) {
     installHint();
