@@ -6,7 +6,12 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkMdxFrontmatter from "remark-mdx-frontmatter";
 import remarkGfm from "remark-gfm";
 import { compression } from "vite-plugin-compression2";
+import { glyphProxyPlugin, localTilesPlugin } from "@vine/ui/vite-plugins";
 import path from "path";
+
+// .maps-cache lives at the repo root; playground is local-only, glyphs use the default protomaps source
+const repoRoot = path.resolve(__dirname, "../..");
+const cacheDir = process.env.VINE_MAPS_CACHE ?? path.join(repoRoot, ".maps-cache");
 
 interface MdastNode {
   type: string;
@@ -88,6 +93,11 @@ export default defineConfig({
   plugins: [
     mdxCodePreview(),
     compression(),
+    localTilesPlugin(path.join(cacheDir, "pmtiles")),
+    glyphProxyPlugin(
+      path.join(cacheDir, "glyphs"),
+      "https://protomaps.github.io/basemaps-assets/fonts",
+    ),
     {
       enforce: "pre",
       ...mdx({

@@ -1,11 +1,37 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalEnv": [
+    "VINE_ROOT",
+    "VINE_MAPS_CACHE",
+    "VINE_PMTILES_BIN",
+    "RUN_NETWORK",
+    "VITE_PMTILES_DIR",
+    "VITE_PMTILES_FILE",
+    "VITE_GLYPHS_URL",
+    "VINE_R2_ENDPOINT",
+    "VINE_R2_REGION",
+    "VINE_R2_ACCESS_KEY",
+    "VINE_R2_SECRET_KEY",
+    "VINE_R2_BUCKET",
+    "VINE_S3_REGION",
+    "VINE_S3_ACCESS_KEY",
+    "VINE_S3_SECRET_KEY",
+    "VINE_S3_BUCKET",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "NODE_USE_ENV_PROXY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
+    },
+    "build:widget": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/widget/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]

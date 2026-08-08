@@ -1,0 +1,5 @@
+@import "@vine/ui/globals.css";
+
+/* Scan the demo app's own sources for tailwind utilities
+   (globals.css only scans packages/ui/src). */
+@source "./**/*.{ts,tsx}";

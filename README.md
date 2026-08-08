@@ -1,80 +1,45 @@
 # Vine 🌿
 
-A static map web app for marking products on a map and creating travel notes — built as a static site with no backend.
-
-## Project Structure
+A fully static map project: a reusable **MapView component** (React + plain-HTML
+widget), a **pmtiles region management CLI**, a demo site and a component
+playground. No backend — everything is built statically.
 
 ```
 vine/
-├── apps/
-│   ├── atlas/          # Main map application
-│   └── playground/     # UI component playground (MDX-driven)
-├── packages/
-│   ├── ui/             # shadcn/ui component library + MapView
-│   └── config/         # Shared TypeScript & ESLint config
-├── .github/workflows/  # GitHub Actions CI
-└── .pi/agents/         # AI subagent definitions
+├── apps/demo/            # MapView showcase (future GitHub Pages entry)
+├── apps/playground/      # UI component docs sandbox
+├── apps/maps-cli/        # pmtiles extract & R2/S3 upload CLI
+├── packages/ui/          # shadcn/ui components + MapView + vite plugins
+├── packages/config/      # Shared TypeScript & ESLint config
+├── .maps-cache/          # Local pmtiles + glyphs cache (gitignored)
+└── docs/                 # Architecture / MapView / pmtiles / publishing
 ```
-
-## Tech Stack
-
-| Layer               | Choice                                              |
-| ------------------- | --------------------------------------------------- |
-| Package Manager     | pnpm 11 (workspace + catalog protocol)              |
-| Build Orchestration | Turborepo 2                                         |
-| Framework           | React 19 + TypeScript 5                             |
-| Bundler             | Vite 6                                              |
-| CSS                 | Tailwind CSS 4 + PostCSS                            |
-| UI Components       | shadcn/ui (new-york style) + Radix primitives       |
-| Icons               | lucide-react                                        |
-| Map                 | MapLibre GL (OpenStreetMap tiles, free, no API key) |
-| Testing             | Vitest + @testing-library/react                     |
-| CI/CD               | GitHub Actions → GitHub Pages                       |
-| AI Agents           | pi-subagents                                        |
-
-## Apps
-
-### atlas (`apps/atlas`)
-
-The main map application. Features:
-
-- Full-screen interactive map with MapLibre GL
-- Product markers on the map with custom popups
-- Travel notes sidebar for filtering
-- Static JSON data bundled at build time (no backend)
-- Hash-based routing for static deployment
-
-### playground (`apps/playground`)
-
-UI component documentation and testing sandbox.
-
-- MDX-driven pages with live code previews (` ```tsx preview `)
-- Shiki syntax highlighting (dark/light)
-- Component search (⌘K)
-- Sidebar navigation with collapsible layout
 
 ## Quick Start
 
 ```bash
-# Install dependencies
 pnpm install
+pnpm --filter=@vine/maps-cli cli extract shanghai   # one-off local cache (needs pmtiles binary)
 
-# Start atlas (map app)
-pnpm exec turbo run dev --filter=@vine/atlas
-
-# Start playground (component docs)
-pnpm exec turbo run dev --filter=@vine/playground
-
-# Build everything
+pnpm exec turbo run dev --filter=@vine/demo          # demo → http://127.0.0.1:5173/vine/
+pnpm exec turbo run dev --filter=@vine/playground    # playground
+pnpm exec turbo run build:widget --filter=@vine/ui   # widget bundle → packages/ui/dist/widget/
 pnpm exec turbo run build
-
-# Run all tests
 pnpm exec turbo run test
 ```
 
-## Design
+> Network operations may need `HTTPS_PROXY=http://127.0.0.1:1095`.
 
-See [docs/architecture.md](./docs/architecture.md) for detailed architecture documentation.
+## Documentation
+
+- **[docs/architecture.md](docs/architecture.md)** — monorepo layout, apps,
+  component library, map stack, CI
+- **[docs/mapview.md](docs/mapview.md)** — MapView component design, React &
+  widget APIs, compatibility notes
+- **[docs/pmtiles.md](docs/pmtiles.md)** — region tile management with
+  `maps-cli`, region presets, metadata sidecar, local cache
+- **[docs/distribution.md](docs/distribution.md)** — distributing via S3-compatible
+  storage (R2/S3) or static widget files: bucket config, sync-assets, build-time URLs
 
 ## License
 
