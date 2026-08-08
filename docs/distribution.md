@@ -336,6 +336,17 @@ above from two repository-level Actions **variables** (`VITE_PMTILES_URL_PREFIX`
 / `VITE_GLYPHS_URL`) — see [docs/ci.md](./ci.md) for the workflow and the
 one-time variable configuration.
 
+The plain-HTML example at `/vine/examples/embed.html` is emitted at build time
+by the demo's `embed-html` vite plugin (`apps/demo/vite-embed-html.ts`) and gets
+the **same** injected URLs: the widget bundle is referenced from
+`<bucket-domain>/vine/widget/map-widget.{js,css}` (derived from
+`VITE_PMTILES_URL_PREFIX`, same storage root as the tiles) and the basemaps /
+glyphs from `vine/pmtiles/` / `vine/glyphs/`. So besides the two variables, the
+bucket must contain the widget bundle (`sync-assets --only widget`) for the
+embed example to work; locally it falls back to the dev-only vite plugin mounts
+(`/widget`, `/pmtiles`, `/glyphs`), and `vite preview` serves the built
+`dist/examples/embed.html` like production.
+
 ## 7. maps-cli command reference
 
 Every `vine-maps` command, run via `pnpm --filter=@vine/maps-cli cli <cmd>`:

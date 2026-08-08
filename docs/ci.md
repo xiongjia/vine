@@ -49,6 +49,13 @@ either variable is missing (without them the hosted page would silently fall
 back to local dev defaults and render an empty map). PR builds skip the guard,
 so the variables only matter once code lands on `main`.
 
+The same two variables drive the plain-HTML example at
+`/vine/examples/embed.html` (served by the demo `embed-html` vite plugin,
+`apps/demo/vite-embed-html.ts`): the widget bundle URLs are derived from
+`VITE_PMTILES_URL_PREFIX` (same storage root, `vine/widget/`), so no extra
+repository variable is needed — `sync-assets --only widget` must have pushed
+the bundle to the bucket.
+
 > Note: both variables are listed in `turbo.json` `globalEnv`, so turbo
 > invalidates its build cache whenever the URLs change — a stale cached build
 > can never be deployed with the old tile URLs.
@@ -100,3 +107,8 @@ accordingly.
 - **Everything green but map is empty**: confirm the variables' paths match
   the actual bucket layout and that R2 CORS allows the `https://xiongjia.github.io`
   origin (see [docs/distribution.md](./distribution.md) §3).
+- **`/vine/examples/embed.html` 404s or renders empty**: the page is emitted at
+  build time (dev/preview serve it from `apps/demo/examples/embed.html` via the
+  `embed-html` plugin middleware) — rebuild after touching it, and verify the
+  page's `map-widget.js` / `pmtiles://` / glyph URLs point at the bucket
+  (`vine/widget/`, `vine/pmtiles/`, `vine/glyphs/`).

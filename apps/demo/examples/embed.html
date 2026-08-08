@@ -72,7 +72,11 @@
         font-size: 12px;
       }
     </style>
-    <link rel="stylesheet" href="/widget/map-widget.css" />
+    <!-- __VINE_WIDGET_CSS__ / __VINE_WIDGET_JS__ / __VINE_PMTILES_PREFIX__ /
+         __VINE_GLYPHS_URL__ are injected at build time (dev: same-origin vite
+         plugin mounts; hosted build: R2 URLs from VITE_PMTILES_URL_PREFIX /
+         VITE_GLYPHS_URL). -->
+    <link rel="stylesheet" href="__VINE_WIDGET_CSS__" />
   </head>
   <body>
     <div class="bar">
@@ -110,10 +114,11 @@
     <div class="info">
       <h1>createMapWidget — plain HTML, no React</h1>
       <p>
-        The map above is a self-contained widget
-        (<code>packages/ui/dist/widget/map-widget.js</code>) mounted with
-        <code>createMapWidget(el, options)</code>. The host page only serves the
-        pmtiles basemap (HTTP Range) and glyphs — everything else is bundled.
+        The map above is a self-contained widget (<code>map-widget.js</code>)
+        mounted with
+        <code>createMapWidget(el, options)</code>. The widget URL, pmtiles
+        basemap and glyphs are injected at build time — same-origin in
+        dev/preview, R2-hosted on the deployed site.
       </p>
       <p>
         <strong>☕ Switch markers</strong> — calls
@@ -134,16 +139,16 @@
       </p>
     </div>
     <script type="module">
-      import { createMapWidget } from "/widget/map-widget.js";
+      import { createMapWidget } from "__VINE_WIDGET_JS__";
 
       const BASEMAPS = {
         shanghai: {
-          url: "pmtiles:///pmtiles/shanghai.pmtiles",
+          url: "__VINE_PMTILES_PREFIX__shanghai.pmtiles",
           center: [121.47, 31.23],
           zoom: 12,
         },
         tokyo: {
-          url: "pmtiles:///pmtiles/tokyo.pmtiles",
+          url: "__VINE_PMTILES_PREFIX__tokyo.pmtiles",
           center: [139.7, 35.68],
           zoom: 12,
         },
@@ -173,6 +178,7 @@
 
       const w = createMapWidget(document.getElementById("map"), {
         basemapUrl: BASEMAPS.shanghai.url,
+        glyphsUrl: "__VINE_GLYPHS_URL__",
         center: BASEMAPS.shanghai.center,
         zoom: BASEMAPS.shanghai.zoom,
         markers: ORIGINAL_MARKERS,
