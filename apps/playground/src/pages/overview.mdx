@@ -18,6 +18,24 @@ import {
 Shared UI component library built with shadcn/ui + Tailwind CSS v4.
 Click a component in the sidebar to explore its variants and usage.
 
+## Maps
+
+<div className="grid gap-4 sm:grid-cols-2">
+  <a href="#/map">
+    <Card className="h-full transition-shadow hover:shadow-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Map className="h-5 w-5 shrink-0" />
+          <span>Map</span>
+        </CardTitle>
+        <CardDescription>MapView with MapLibre GL + Protomaps</CardDescription>
+      </CardHeader>
+    </Card>
+  </a>
+</div>
+
+## Components
+
 <div className="grid gap-4 sm:grid-cols-2">
   <a href="#/button">
     <Card className="h-full transition-shadow hover:shadow-md">
@@ -38,17 +56,6 @@ Click a component in the sidebar to explore its variants and usage.
           <span>Card</span>
         </CardTitle>
         <CardDescription>Card layout and sub-components</CardDescription>
-      </CardHeader>
-    </Card>
-  </a>
-  <a href="#/map">
-    <Card className="h-full transition-shadow hover:shadow-md">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Map className="h-5 w-5 shrink-0" />
-          <span>Map</span>
-        </CardTitle>
-        <CardDescription>MapView with MapLibre GL</CardDescription>
       </CardHeader>
     </Card>
   </a>

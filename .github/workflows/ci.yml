@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
@@ -32,9 +32,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-check-${{ github.sha }}
+          key: turbo-${{ runner.os }}-lint-${{ github.sha }}
           restore-keys: |
-            turbo-${{ runner.os }}-check-
+            turbo-${{ runner.os }}-lint-
 
       - name: Lint
         run: pnpm exec turbo run lint
@@ -68,7 +68,7 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-test-
 
-      - name: Run tests
+      - name: Unit tests
         run: pnpm exec turbo run test
 
   build:
@@ -97,26 +97,15 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-build-
 
-      - name: Build
+      - name: Build apps & packages
         run: pnpm exec turbo run build
 
-      - name: Upload static site artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: apps/atlas/dist
+      - name: Build widget
+        run: pnpm exec turbo run build:widget
 
-  deploy:
-    name: Deploy to GitHub Pages
-    if: github.ref == 'refs/heads/main'
-    needs: [check, test, build]
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      # GitHub Pages deployment is TEMPORARILY disabled during the refactor.
+      # To restore (once the demo serves its tiles from R2/S3):
+      #   - upload apps/demo/dist with actions/upload-pages-artifact
+      #   - re-enable a deploy job (actions/deploy-pages, pages: write,
+      #     id-token: write) gated on refs/heads/main
+      # See docs/distribution.md §6.

@@ -1,6 +1,6 @@
 ---
 title: Map
-description: MapView with MapLibre GL
+description: MapView with MapLibre GL + Protomaps (pmtiles)
 ---
 
 import {
@@ -11,47 +11,100 @@ import {
   CardTitle,
 } from "@vine/ui";
 import { MapView } from "@vine/ui";
+import {
+  shanghaiMarkers,
+  shanghaiTracks,
+  tokyoMarkers,
+} from "../lib/map-demo-data";
 
 # Map
 
-Interactive map powered by MapLibre GL with OpenStreetMap tiles.
+MapView is built on MapLibre GL with a Protomaps pmtiles basemap. The tiles
+must be served (the demo app's local-tiles plugin, or a remote R2 URL);
+playground is for component usage only — without tiles the map stays blank
+but markers / tracks still render.
 
-## Default
-
-Centered on Tokyo with default zoom and height.
+## Shanghai (markers + tracks + HUD)
 
 ```tsx preview
-<MapView className="rounded-md" />
+<MapView
+  className="rounded-md h-96"
+  basemap={{ url: "pmtiles:///pmtiles/shanghai.pmtiles", flavor: "light" }}
+  center={[121.47, 31.23]}
+  zoom={12}
+  markers={shanghaiMarkers}
+  tracks={shanghaiTracks}
+  showCenterHud
+/>
 ```
 
-## Custom Center
+> One marker (咖啡A) intentionally keeps a Chinese label to demonstrate CJK
+> label rendering (requires the glyph cache to contain CJK glyphs).
 
-New York City with custom zoom level.
+## Tokyo (markers + dark flavor)
 
 ```tsx preview
-<MapView className="rounded-md" center={[-74.006, 40.7128]} zoom={12} />
+<MapView
+  className="rounded-md h-96"
+  basemap={{ url: "pmtiles:///pmtiles/tokyo.pmtiles", flavor: "dark" }}
+  center={[139.7, 35.68]}
+  zoom={12}
+  markers={tokyoMarkers}
+  showCenterHud
+/>
 ```
 
 ## Inside a Card
 
 ```tsx preview
-<Card className="w-96">
+<Card className="w-96 max-w-full">
   <CardHeader>
-    <CardTitle>MapLibre GL</CardTitle>
-    <CardDescription>With OpenStreetMap tiles</CardDescription>
+    <CardTitle>MapView</CardTitle>
+    <CardDescription>Protomaps pmtiles basemap</CardDescription>
   </CardHeader>
   <CardContent>
-    <MapView className="rounded-md" />
+    <MapView
+      className="h-64"
+      basemap={{ url: "pmtiles:///pmtiles/shanghai.pmtiles" }}
+      center={[121.47, 31.23]}
+      zoom={11}
+      markers={shanghaiMarkers}
+    />
   </CardContent>
 </Card>
 ```
 
+## Custom Attribution
+
+Pass `attribution` at init to override the default `PROTOMAPS_ATTRIBUTION`
+(shown in the bottom-right attribution control).
+
+```tsx preview
+<MapView
+  className="rounded-md h-96"
+  basemap={{ url: "pmtiles:///pmtiles/shanghai.pmtiles", attribution: "© Example data source" }}
+  center={[121.47, 31.23]}
+  zoom={12}
+  markers={shanghaiMarkers}
+/>
+```
+
 ## API
 
-| Prop        | Type               | Default               | Description        |
-| ----------- | ------------------ | --------------------- | ------------------ |
-| `center`    | `[number, number]` | `[139.6917, 35.6895]` | Map center (Tokyo) |
-| `zoom`      | `number`           | `10`                  | Zoom level         |
-| `height`    | `string`           | `"300px"`             | Map height         |
-| `className` | `string`           | —                     | CSS class          |
-| `style`     | `CSSProperties`    | —                     | Inline styles      |
+| Prop | Type | Default | Description |
+| ---- | ---- | ------- | ----------- |
+| `basemap` | `{ url, flavor?, lang?, glyphs?, attribution? }` | — | pmtiles URL + Protomaps flavor (light / dark / white / black / grayscale) |
+| `center` | `[number, number]` | — | Map center |
+| `zoom` | `number` | — | Zoom level |
+| `maxBounds` | `[[lng,lat],[lng,lat]]` | — | Camera constraint |
+| `markers` | `MarkerSpec[]` | `[]` | Markers (label / emoji / popupContent / color) |
+| `tracks` | `TrackSpec[]` | `[]` | Tracks (name / color / coordinates / closed) |
+| `openMarkerIndex` | `number` | — | Marker popup auto-opened on first render (default: none) |
+| `showCenterHud` | `boolean` | `false` | Live center / zoom HUD |
+| `navControl` | `boolean` | `true` | Navigation control |
+| `className` | `string` | — | Container class (controls size) |
+| `onMapReady` | `(map) => void` | — | Style-loaded callback |
+| `onClick` | `(e) => void` | — | Click event |
+| `onMove` | `(e) => void` | — | Move event |
+| `onZoom` | `(e) => void` | — | Zoom event |
+| `onIdle` | `(e) => void` | — | Idle event |

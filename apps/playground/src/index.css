@@ -1,0 +1,5 @@
+@import "@vine/ui/globals.css";
+
+/* Scan the playground app's own sources (incl. MDX pages) for tailwind
+   utilities (globals.css only scans packages/ui/src). */
+@source "./**/*.{ts,tsx,mdx}";

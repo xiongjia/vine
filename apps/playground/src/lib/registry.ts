@@ -17,11 +17,15 @@ import * as DialogMod from "../pages/dialog.mdx";
 import * as MapMod from "../pages/map.mdx";
 import * as SheetMod from "../pages/sheet.mdx";
 
+export type PageGroup = "overview" | "maps" | "components";
+
 export interface PageMeta {
   slug: string;
   title: string;
   description: string;
   icon: ComponentType<{ className?: string }>;
+  /** Group: map components (maps) first, generic components (components) after. */
+  group: PageGroup;
 }
 
 export interface PageEntry extends PageMeta {
@@ -41,7 +45,17 @@ const pages: PageEntry[] = [
     description:
       (OverviewMod as unknown as MDXExports).frontmatter?.description ?? "",
     icon: LayoutDashboard,
+    group: "overview",
     Component: OverviewMod.default,
+  },
+  {
+    slug: "map",
+    title: (MapMod as unknown as MDXExports).frontmatter?.title ?? "Map",
+    description:
+      (MapMod as unknown as MDXExports).frontmatter?.description ?? "",
+    icon: Map,
+    group: "maps",
+    Component: MapMod.default,
   },
   {
     slug: "button",
@@ -49,6 +63,7 @@ const pages: PageEntry[] = [
     description:
       (ButtonMod as unknown as MDXExports).frontmatter?.description ?? "",
     icon: Square,
+    group: "components",
     Component: ButtonMod.default,
   },
   {
@@ -57,15 +72,8 @@ const pages: PageEntry[] = [
     description:
       (CardMod as unknown as MDXExports).frontmatter?.description ?? "",
     icon: Layers,
+    group: "components",
     Component: CardMod.default,
-  },
-  {
-    slug: "map",
-    title: (MapMod as unknown as MDXExports).frontmatter?.title ?? "Map",
-    description:
-      (MapMod as unknown as MDXExports).frontmatter?.description ?? "",
-    icon: Map,
-    Component: MapMod.default,
   },
   {
     slug: "checkbox",
@@ -74,6 +82,7 @@ const pages: PageEntry[] = [
     description:
       (CheckboxMod as unknown as MDXExports).frontmatter?.description ?? "",
     icon: CheckSquare,
+    group: "components",
     Component: CheckboxMod.default,
   },
   {
@@ -82,6 +91,7 @@ const pages: PageEntry[] = [
     description:
       (DialogMod as unknown as MDXExports).frontmatter?.description ?? "",
     icon: AppWindow,
+    group: "components",
     Component: DialogMod.default,
   },
   {
@@ -90,18 +100,34 @@ const pages: PageEntry[] = [
     description:
       (SheetMod as unknown as MDXExports).frontmatter?.description ?? "",
     icon: PanelRight,
+    group: "components",
     Component: SheetMod.default,
   },
 ];
 
+const toMeta = ({ slug, title, description, icon, group }: PageEntry): PageMeta => ({
+  slug,
+  title,
+  description,
+  icon,
+  group,
+});
+
 export const getPage = (slug: string): PageEntry | undefined =>
   pages.find((p) => p.slug === slug);
 
-export const pagesMeta: PageMeta[] = pages.map(
-  ({ slug, title, description, icon }) => ({
-    slug,
-    title,
-    description,
-    icon,
-  }),
-);
+export const pagesMeta: PageMeta[] = pages.map(toMeta);
+
+/** Sidebar groups: Overview first, then map components (maps), then generic components (components). */
+export const pageGroups: Array<{ group: PageGroup; label?: string; items: PageMeta[] }> = [
+  {
+    group: "overview",
+    items: pages.filter((p) => p.group === "overview").map(toMeta),
+  },
+  { group: "maps", label: "Maps", items: pages.filter((p) => p.group === "maps").map(toMeta) },
+  {
+    group: "components",
+    label: "Components",
+    items: pages.filter((p) => p.group === "components").map(toMeta),
+  },
+];

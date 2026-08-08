@@ -2,7 +2,12 @@
 
 ## Overview
 
-Vine is a **fully static map web application** that lets users mark products on a map and organize them with travel notes. It is built as a monorepo with no backend — all data is embedded at build time, and the output is a deployable static site.
+Vine is a **fully static map project** built around a reusable **MapView component**
+(MapLibre GL + Protomaps pmtiles basemaps), an **embeddable map widget** (plain-HTML
+entry), a **pmtiles management CLI** (`maps-cli`), a demo site and a component
+playground. There is no backend — everything is built statically and the map data
+(pmtiles + glyphs) is served either from a local cache in dev or from R2/S3 in
+production.
 
 ---
 
@@ -11,272 +16,205 @@ Vine is a **fully static map web application** that lets users mark products on 
 ```
 vine/
 ├── apps/
-│   ├── atlas/               # Main map application
-│   └── playground/          # UI component documentation sandbox
+│   ├── demo/               # MapView showcase site + future GitHub Pages entry
+│   ├── playground/         # UI component documentation sandbox (local use)
+│   └── maps-cli/           # pmtiles region extract & R2/S3 upload CLI
 ├── packages/
-│   ├── config/              # Shared TypeScript & ESLint configuration
-│   └── ui/                  # Reusable UI component library
-├── .github/workflows/       # CI pipeline
-├── .pi/agents/              # AI subagent definitions
-├── AGENTS.md                # AI context entry point
-├── pnpm-workspace.yaml      # Workspace definition + catalog protocol
-└── turbo.json               # Task orchestration
+│   ├── config/             # Shared TypeScript & ESLint configuration
+│   └── ui/                 # Component library + MapView + vite plugins
+├── .maps-cache/            # Local pmtiles + glyphs cache (gitignored, machine-local)
+├── docs/                   # Architecture / MapView / pmtiles / publishing docs
+├── .github/workflows/      # CI (lint, unit tests, build — Pages deploy disabled)
+├── AGENTS.md               # AI context entry point
+├── pnpm-workspace.yaml     # Workspace definition + catalog protocol
+└── turbo.json              # Task orchestration
 ```
 
 ### 1.1 Package Manager: pnpm
 
-pnpm 11 with workspace protocol and catalog dependencies. Shared dependency versions are declared once in `pnpm-workspace.yaml` under the `catalog:` key and referenced via `catalog:` in individual `package.json` files.
+pnpm 11 with workspace protocol and catalog dependencies. Shared dependency
+versions are declared once in `pnpm-workspace.yaml` under the `catalog:` key and
+referenced via `catalog:` in each `package.json`.
 
 ### 1.2 Build Orchestration: Turborepo
 
-Turborepo 2 manages task dependencies:
-
 ```
-build  → depends on ^build (build dependencies first)
-lint   → depends on ^lint
-test   → depends on ^build
-dev    → persistent, no cache
+build         → depends on ^build, outputs dist/**
+build:widget  → depends on ^build, outputs dist/widget/**
+lint          → depends on ^lint
+check-types   → depends on ^build
+test          → depends on ^build, no cache
+dev           → persistent, no cache
 ```
 
-Tasks are cached locally and can be shared remotely in CI.
+Map-related versions are pinned in the catalog (`maplibre-gl ^5.24.0`,
+`pmtiles ^4.4.1`, `@protomaps/basemaps ^5.7.2`) — MapLibre v6 is incompatible
+with the pmtiles protocol, so the version stays locked to v5.
 
 ---
 
-## 2. Application Architecture
+## 2. Applications
 
-### 2.1 atlas (`apps/atlas`)
+### 2.1 demo (`apps/demo`)
 
-The main application. It is a **single-page application (SPA)** with hash-based routing, designed for static hosting (no server required).
+A presentation-first showcase of MapView: big maps with minimal text, a
+collapsible "View code" snippet per example, an interactive style switcher and a
+link to the plain-HTML embed example. Data is the demo's own Chinese sample data
+from `packages/ui/src/lib/sample-data.ts`.
 
-**Route design:**
+Sections are split into `apps/demo/src/components/examples/*`:
+`shanghai-demo`, `tokyo-demo`, `styles-demo`, `embed-demo`.
 
-| Hash route            | View                              |
-| --------------------- | --------------------------------- |
-| `#/map` (default)     | Full-screen map with all products |
-| (future) `#/note/:id` | Note detail view                  |
+The dev/preview Vite server mounts three plugins (from
+`@vine/ui/vite-plugins`):
 
-**Component tree:**
+| Plugin | Mount | Purpose |
+| ------ | ----- | ------- |
+| `local-tiles` | `/pmtiles/*` | Serve `.maps-cache/pmtiles` with HTTP Range/206 |
+| `glyph-proxy` | `/glyphs/*` | Serve `.maps-cache/glyphs`, downloading on cache miss |
+| `widget-dist` | `/widget/*` | Serve the built widget (`packages/ui/dist/widget`) |
 
-```
-App
-├── SidebarProvider (context for sidebar state)
-│   ├── SidebarAside
-│   │   ├── Header (title + ThemeToggle)
-│   │   ├── Note filter list (NoteCard[])
-│   │   └── Product detail panel (when selected)
-│   └── AtlasMap (full-screen)
-│       └── Marker[] (product locations)
-```
-
-**Data flow:**
-
-```
-products.json ──→ App ──→ AtlasMap (markers)
-notes.json    ──→ App ──→ Sidebar (note filters)
-                      └──→ ProductDetail (when marker clicked)
-```
-
-- Static JSON files are imported at build time via Vite's static asset handling.
-- Filtering is done client-side by React state (`activeNoteId`).
-- No network requests at runtime — the app works fully offline after the initial load.
+Tile/glyph URLs are injected at build time (`VITE_PMTILES_URL_PREFIX`,
+`VITE_GLYPHS_URL`); local dev defaults to the same-origin cache.
 
 ### 2.2 playground (`apps/playground`)
 
-A documentation sandbox for UI components, powered by MDX files.
+A documentation sandbox for UI components, powered by MDX files with live
+previews (` ```tsx preview ` fenced blocks transformed by a custom Vite plugin
+into `<ComponentPreview>`). Shiki provides syntax highlighting.
 
-**How it works:**
+The sidebar groups pages into **Overview → Maps → Components**. The map page
+uses local English demo data (with a single Chinese marker to demonstrate CJK
+label rendering).
 
-1. Each component has a `.mdx` page under `src/pages/`.
-2. MDX files are compiled at build time by `@mdx-js/rollup`.
-3. A custom Vite plugin (`mdxCodePreview`) transforms ` ```tsx preview ` fenced code blocks into `<ComponentPreview>` elements that show both the rendered component and its source code side by side.
-4. Shiki provides syntax highlighting (supports dark/light themes).
+### 2.3 maps-cli (`apps/maps-cli`)
 
-**Pages:**
-
-| Page           | Component | Description                               |
-| -------------- | --------- | ----------------------------------------- |
-| `overview.mdx` | —         | Card grid linking to all components       |
-| `button.mdx`   | Button    | Variants, sizes, disabled, asChild        |
-| `card.mdx`     | Card      | Card, CardHeader, CardContent, CardFooter |
-| `checkbox.mdx` | Checkbox  | Default, disabled                         |
-| `dialog.mdx`   | Dialog    | Modal dialog with header/footer           |
-| `sheet.mdx`    | Sheet     | Slide-over panel (left/right)             |
-| `map.mdx`      | MapView   | MapLibre GL map component                 |
+A Node CLI (commander) for pmtiles region management. It shells out to the
+external `pmtiles` / `go-pmtiles` binary (installed by the developer; see
+[docs/pmtiles.md](./pmtiles.md)). Commands: `build-date`, `extract`,
+`metadata`, `verify`, `list`, `upload`, `rm`, `sync-assets`, `gcj2wgs`.
 
 ---
 
 ## 3. UI Component Library (`packages/ui`)
 
-Built on **shadcn/ui** (new-york style) with Tailwind CSS v4.
+Built on **shadcn/ui** (new-york style) with Tailwind CSS v4, all kebab-case
+files, ESM (`"type": "module"`), source-consumed via exports:
 
-### Component inventory
-
-| Component          | Radix Primitive             | Features                                                                    |
-| ------------------ | --------------------------- | --------------------------------------------------------------------------- |
-| `Button`           | `@radix-ui/react-slot`      | Variants (default/destructive/outline/secondary/ghost/link), sizes, asChild |
-| `Card`             | —                           | Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter       |
-| `Dialog`           | `@radix-ui/react-dialog`    | Overlay, content, header, footer, close button                              |
-| `Sheet`            | `@radix-ui/react-dialog`    | 4 sides (top/bottom/left/right), overlay, close                             |
-| `Sidebar`          | —                           | Provider, Aside, Menu, MenuButton, Group, Separator, collapsible            |
-| `Separator`        | `@radix-ui/react-separator` | Horizontal/vertical orientations                                            |
-| `Tooltip`          | `@radix-ui/react-tooltip`   | Provider, Trigger, Content                                                  |
-| `Popover`          | `@radix-ui/react-popover`   | Trigger, Content, Anchor                                                    |
-| `Checkbox`         | `@radix-ui/react-checkbox`  | Checked/unchecked, disabled                                                 |
-| `Input`            | —                           | Search, text, disabled states                                               |
-| `Header`           | —                           | Title, start/end slots, children                                            |
-| `Content`          | —                           | Prose typography wrapper (dark mode aware)                                  |
-| `ThemeToggle`      | —                           | Dark/light mode toggle (persisted to localStorage)                          |
-| `MapView`          | —                           | MapLibre GL with OSM raster tiles                                           |
-| `CodeBlock`        | —                           | Shiki syntax highlighted code display                                       |
-| `ComponentPreview` | —                           | Side-by-side preview + code for MDX playground                              |
-
-### Styling strategy
-
-- **Tailwind CSS v4** with `@theme` for CSS custom properties.
-- Colors defined as HSL variables for both light and dark themes.
-- Dark mode toggled by adding `.dark` class to `<html>` and persisted in `localStorage`.
-- The `@custom-variant dark` directive maps `.dark` class to Tailwind's `dark:` variant.
-- The `@source` directive ensures Tailwind scans the UI package source even when imported from apps.
-
----
-
-## 4. Map Integration
-
-Uses **MapLibre GL JS** with free OpenStreetMap raster tiles.
-
-### MapView (`packages/ui`)
-
-A basic wrapper that creates a MapLibre map instance with OSM tiles. Used by the playground for documentation.
-
-Props: `center`, `zoom`, `height`, `style`, `className`
-
-### AtlasMap (`apps/atlas`)
-
-An enhanced map component built directly on maplibre-gl for the atlas app. Adds:
-
-- **Navigation control** (zoom in/out)
-- **Custom markers** — styled as colored pins with a tag icon
-- **Marker click handlers** — clicking a marker calls `onProductSelect` to show the product detail panel
-- **Marker lifecycle** — markers are cleaned up when the product list changes or the component unmounts
-
-**Map style:**
-
-```json
-{
-  "version": 8,
-  "sources": {
-    "osm": {
-      "type": "raster",
-      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      "tileSize": 256,
-      "attribution": "© OpenStreetMap contributors"
-    }
-  },
-  "layers": [{ "id": "osm", "type": "raster", "source": "osm" }]
-}
+```
+"."             → src/index.ts
+"./globals.css" → src/globals.css
+"./vite-plugins"→ vite/plugins.ts   (local-tiles / glyph-proxy / widget-dist)
 ```
 
----
+### Component inventory (current)
 
-## 5. Data Model
+| Component          | Notes                                                        |
+| ------------------ | ------------------------------------------------------------ |
+| `Button`           | Variants, sizes, asChild                                     |
+| `Card`             | Card + Header/Title/Description/Content/Footer               |
+| `Checkbox`         | Radix checkbox                                               |
+| `CodeBlock`        | Shiki syntax-highlighted code                                |
+| `CodeToggle`       | Collapsible example code block (used by demo)                |
+| `ComponentPreview` | Side-by-side preview + code for MDX playground               |
+| `Content`          | Prose typography wrapper                                     |
+| `Dialog` / `Sheet` | Radix dialogs (modal / slide-over)                           |
+| `GithubIcon`       | Inline SVG brand icon (lucide 1.x dropped brand icons)       |
+| `Header`           | Title + start/children/end slots                             |
+| `Input`            | Text input                                                   |
+| `MapView`          | MapLibre + Protomaps (see [docs/mapview.md](./mapview.md))   |
+| `Sidebar`          | Provider + Aside + Menu (used by playground)                 |
+| `ThemeToggle`      | Dark/light toggle persisted to localStorage                  |
+| `Tooltip`          | Radix tooltip                                                |
+| hooks              | `useIsMobile`, `useHashRoute`                                |
 
-All data is static JSON files bundled at build time.
+Everything exported from `@vine/ui` has unit tests (77 total).
 
-### Product
+### Styling
 
-```typescript
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  lng: number; // longitude
-  lat: number; // latitude
-  image?: string; // optional image URL
-  tags: string[]; // e.g. ["ceramics", "handicraft"]
-  noteId?: string; // reference to a TravelNote
-}
-```
-
-### TravelNote
-
-```typescript
-interface TravelNote {
-  id: string;
-  title: string;
-  date: string; // ISO date string
-  summary: string;
-  tags: string[];
-}
-```
+Tailwind CSS v4 with `@theme` HSL variables, `.dark` class variant, and
+`@plugin "@tailwindcss/typography"` registered in `globals.css`. Each app has
+its own CSS entry that imports the shared globals and adds its own `@source`
+so app-level utilities are scanned.
 
 ---
 
-## 6. CI/CD Pipeline
+## 4. Map Stack
 
-Defined in `.github/workflows/ci.yml`.
+See [docs/mapview.md](./docs/mapview.md) for the component design and
+[docs/pmtiles.md](./docs/pmtiles.md) for tile data management.
 
-| Job     | Description                           |
-| ------- | ------------------------------------- |
-| `check` | ESLint + TypeScript type checking     |
-| `test`  | Vitest unit tests across all packages |
-| `build` | `turbo run build` → upload `apps/atlas/dist/` as Pages artifact |
-| `deploy`| Deploy to GitHub Pages (on `main` branch)                  |
+Key pieces:
 
-Uses `pnpm/action-setup@v6` with Node 24, turbo caching via `actions/cache`, and `actions/deploy-pages@v4` for the final deployment step.
-
----
-
-## 7. AI Subagents
-
-Configured via `pi-subagents` in `.pi/settings.json`. Builtin agents (`reviewer`, `worker`) are overridden with project-specific system prompts.
-
-The [AGENTS.md](../AGENTS.md) file at the project root serves as the AI context entry, describing project structure, tech stack, coding principles, and development commands.
-
----
-
-## 8. Key Design Decisions
-
-| Decision           | Choice                | Rationale                                                                            |
-| ------------------ | --------------------- | ------------------------------------------------------------------------------------ |
-| **No backend**     | Fully static          | Zero operational cost, deployable to any static host (GitHub Pages, Vercel, Netlify) |
-| **Data storage**   | JSON files in source  | Simplified editing, version-controlled, no database dependency                       |
-| **Map tiles**      | OpenStreetMap raster  | Free, no API key required                                                            |
-| **Routing**        | Hash-based (`#/path`) | Works without server-side URL rewriting on static hosts                              |
-| **Component docs** | MDX + playground      | Self-documenting, live previews, co-located with code                                |
-| **CSS framework**  | Tailwind CSS v4       | Utility-first, CSS variables for theming, small runtime                              |
-| **Map library**    | MapLibre GL           | Open-source, lightweight, good TypeScript support                                    |
-| **UI primitives**  | Radix + shadcn/ui     | Accessible, unstyled, composable                                                     |
+- **MapView** (`packages/ui/src/components/ui/map-view.tsx`) — thin React
+  wrapper over a framework-agnostic `MapController`.
+- **MapController** (`packages/ui/src/lib/map/map-controller.ts`) — owns the
+  MapLibre instance: lifecycle, camera (`flyTo`/`fitBounds`), events, layer and
+  source management, runtime HUD.
+- **Specs / layers** — `MarkerSpec`/`TrackSpec` public API converted to GeoJSON
+  (`geojson.ts`), rendered by `marker-layer` (DOM markers) and `track-layer`
+  (GeoJSON line layers).
+- **Basemap style** — `createProtomapsStyle` builds a vector style from
+  `@protomaps/basemaps` flavors (light/dark/white/black/grayscale) with an
+  overridable attribution.
+- **Widget** (`packages/ui/src/widget.tsx`) — `createMapWidget(el, options)`
+  mounts the same MapView into any element; built by `build:widget` into a
+  self-contained ESM bundle (`dist/widget/map-widget.js|css`).
+- **Local cache** (`.maps-cache/`) — pmtiles files + glyph PBFs, served by the
+  Vite plugins in dev; never committed.
 
 ---
 
-## 9. Development Workflow
+## 5. CI/CD
+
+Defined in `.github/workflows/ci.yml`. Three jobs, no Pages deployment
+(temporarily disabled during the refactor):
+
+| Job | Steps |
+| --- | ----- |
+| `lint` | `turbo run lint` + `turbo run check-types` |
+| `test` | `turbo run test` (unit tests across all packages) |
+| `build` | `turbo run build` + `turbo run build:widget` |
+
+GitHub Pages deploy is commented/disabled; the restore instructions live in
+[docs/distribution.md](./distribution.md)
+
+---
+
+## 6. Key Design Decisions
+
+| Decision                 | Choice                         | Rationale                                                                 |
+| ------------------------ | ------------------------------ | ------------------------------------------------------------------------- |
+| **No backend**           | Fully static                   | Zero operational cost, deployable to any static host                      |
+| **Map tiles**            | Protomaps pmtiles (vector)     | Small region files, HTTP Range reads, R2/S3-friendly, no API key          |
+| **MapLibre version**     | v5 pinned                      | v6 is incompatible with the pmtiles protocol                              |
+| **Region data**          | `.pmtiles` + `metadata.json`   | Lng/lat bounds available without parsing the binary                       |
+| **Cache naming**         | `.maps-cache/` at repo root    | Shared by all apps; plugins resolve via repo root (turbo runs per package)|
+| **Widget distribution**  | Static ESM files, no npm       | Hand JS/CSS to hosts or publish via R2                                    |
+| **Component docs**       | MDX + playground + unit tests  | Self-documenting with live previews                                       |
+| **CI**                   | lint/test/build, no deploy     | Pages deploy re-enabled after the refactor                                |
+
+---
+
+## 7. Development Workflow
 
 ```bash
-# Install
 pnpm install
 
-# Dev mode
-pnpm exec turbo run dev --filter=@vine/atlas      # Map app (port 5173)
-pnpm exec turbo run dev --filter=@vine/playground  # Playground (port 5174)
+# Local cache (one-off, machine-local)
+pnpm --filter=@vine/maps-cli cli extract shanghai
+pnpm --filter=@vine/maps-cli cli extract tokyo
 
-# Build all
-pnpm exec turbo run build
+# Dev
+pnpm exec turbo run dev --filter=@vine/demo        # demo (port 5173, /vine/)
+pnpm exec turbo run dev --filter=@vine/playground  # playground (port 5174)
 
-# Run checks
+# Widget build
+pnpm exec turbo run build:widget --filter=@vine/ui
+
+# Checks
 pnpm exec turbo run lint
-pnpm exec turbo run test
-
-# Type check
 pnpm exec turbo run check-types
+pnpm exec turbo run test
+pnpm exec turbo run build
 ```
-
----
-
-## 10. Future Considerations
-
-- **MDX travel notes**: Notes as `.mdx` files in `apps/atlas/src/notes/` compiled at build time
-- **Product markers**: Enhanced popups with images, links, and richer metadata
-- **Offline support**: Service worker for full offline capability
-- **Vector tiles**: Upgrade from OSM raster to vector tiles for smoother rendering
-- **Search**: Client-side full-text search across products and notes
-- **Print/export**: Generate printable travel maps or PDF itineraries

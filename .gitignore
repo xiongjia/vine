@@ -21,8 +21,30 @@ out/
 build
 dist
 
-# AI tools
-.claude/settings.local.json
+# claude code — track skills, ignore local settings
+.claude/*
+!.claude/skills/
+
+# pi coding agent — commit shared skills/prompts, ignore personal config & artifacts
+.pi/*
+!.pi/skills/
+!.pi/prompts/
+!.pi/agents/
+!.pi/chains/
+
+# personal agent config & local artifacts (never commit)
+.pi/settings.json
+.pi/.mung/
+.pi/npm/
+.pi/sessions/
+
+# pi subagents (auto-generated workspace)
+.pi-subagents/
+
+# maps local cache (pmtiles + glyphs, machine-local)
+.maps-cache/
+
+# other AI tools
 .codegraph/
 *-draft.md
 
