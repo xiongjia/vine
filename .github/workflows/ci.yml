@@ -74,6 +74,16 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    env:
+      # R2 tile/glyph URLs, injected as Vite build-time params. Configured as
+      # GitHub Actions *variables* at repo level (Settings → Secrets and
+      # variables → Actions → Variables). See docs/ci.md.
+      VITE_PMTILES_URL_PREFIX: ${{ vars.VITE_PMTILES_URL_PREFIX }}
+      VITE_GLYPHS_URL: ${{ vars.VITE_GLYPHS_URL }}
     steps:
       - uses: actions/checkout@v6
 
@@ -97,15 +107,52 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-build-
 
+      # The demo build on main must point at real R2 assets; without the
+      # variables it silently falls back to local dev defaults and the hosted
+      # page renders an empty map. Fail loudly before wasting build time.
+      - name: Check R2 asset URLs are configured
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -z "$VITE_PMTILES_URL_PREFIX" ] || [ -z "$VITE_GLYPHS_URL" ]; then
+            echo "::error::Missing GitHub Actions variables: set VITE_PMTILES_URL_PREFIX and VITE_GLYPHS_URL at Settings → Secrets and variables → Actions → Variables (see docs/ci.md)."
+            exit 1
+          fi
+
       - name: Build apps & packages
         run: pnpm exec turbo run build
 
       - name: Build widget
         run: pnpm exec turbo run build:widget
 
-      # GitHub Pages deployment is TEMPORARILY disabled during the refactor.
-      # To restore (once the demo serves its tiles from R2/S3):
-      #   - upload apps/demo/dist with actions/upload-pages-artifact
-      #   - re-enable a deploy job (actions/deploy-pages, pages: write,
-      #     id-token: write) gated on refs/heads/main
-      # See docs/distribution.md §6.
+      - name: Configure Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v6.0.0
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/demo/dist
+          include-hidden-files: true # ship public/.nojekyll so Jekyll never processes the site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/main'
+    needs: [build]
+    # Serialize Pages deployments: deploy-pages is async and parallel runs
+    # can land out of order, making GitHub Pages serve an older artifact
+    # ("fallback to a historical version"). Cancel stale in-progress deploys.
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5.0.0

@@ -328,14 +328,13 @@ Hand the widget bundle to a host that serves the pmtiles (Range) and glyphs:
 
 Version the bundle for upgrades, e.g. `map-widget@1.2.0.js`.
 
-## 6. Restoring GitHub Pages (after the refactor)
+## 6. GitHub Pages deployment
 
-Once the demo serves its tiles from object storage (build-time URLs above):
-
-1. In `.github/workflows/ci.yml`, upload `apps/demo/dist` with
-   `actions/upload-pages-artifact@v5`.
-2. Re-enable a `deploy` job (`actions/deploy-pages@v5`, `pages: write`,
-   `id-token: write`) gated on `refs/heads/main`.
+The demo is auto-deployed to GitHub Pages on every push to `main` at
+<https://xiongjia.github.io/vine/>. CI injects the build-time tile/glyph URLs
+above from two repository-level Actions **variables** (`VITE_PMTILES_URL_PREFIX`
+/ `VITE_GLYPHS_URL`) — see [docs/ci.md](./ci.md) for the workflow and the
+one-time variable configuration.
 
 ## 7. maps-cli command reference
 
