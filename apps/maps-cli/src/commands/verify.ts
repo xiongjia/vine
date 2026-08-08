@@ -29,10 +29,16 @@ export async function verifyRegion(region: string): Promise<void> {
   let meta: RegionMetadata;
   try {
     meta = await readMetadata(outDir, region);
-  } catch {
-    console.log(
-      `⚠ missing ${region}.metadata.json (run extract to regenerate)`,
-    );
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      console.log(
+        `⚠ missing ${region}.metadata.json (run extract to regenerate)`,
+      );
+    } else {
+      console.log(
+        `⚠ ${err instanceof Error ? err.message : String(err)} (run update-metadata to regenerate)`,
+      );
+    }
     return;
   }
 

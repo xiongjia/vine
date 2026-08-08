@@ -23,7 +23,7 @@ export function pmtilesAvailable(): boolean {
   return available(pmtilesBin());
 }
 
-function installHint(): void {
+export function installHint(): void {
   console.error(
     "pmtiles command not found. Install one of:\n" +
       "  brew install pmtiles\n" +

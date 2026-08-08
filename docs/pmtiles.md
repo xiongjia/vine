@@ -34,7 +34,7 @@ pnpm --filter=@vine/maps-cli cli extract tokyo --bbox=139.4,35.4,140.2,35.9 --ma
 pnpm --filter=@vine/maps-cli cli extract shanghai --dry-run # print the command only
 ```
 
-## 3. Region presets & the metadata sidecar
+## 3. Region presets & metadata
 
 Presets live in `apps/maps-cli/src/presets.ts` and bind a region name to its
 lng/lat bounding box (first two test regions: **shanghai**, **tokyo**).
@@ -55,6 +55,64 @@ pmtiles file, so consumers know the lng/lat bounds without parsing the binary:
 }
 ```
 
+Note: sidecars written by `extract`/`metadata` keep the _requested_ crop bbox,
+while `update-metadata` writes the _actual_ header bbox — the two can differ by
+a fraction of a degree (pmtiles snaps bounds to tile boundaries).
+
+### Aggregate index: `pmtiles.json`
+
+The per-region sidecar alone is not enough for discovery — a consumer would
+have to know every filename in advance. So every mutation also maintains one
+aggregate catalog file, `pmtiles.json`, next to the sidecars (local:
+`.maps-cache/pmtiles/pmtiles.json`, remote: `vine/pmtiles/pmtiles.json` —
+the `vine` root is configurable via `--root` / `VINE_STORAGE_ROOT`). It
+reuses the same entry shape (the `file` field is the metadata ↔ `.pmtiles`
+relationship), so a consumer fetches one JSON to see every region and where its
+tiles live:
+
+```json
+{
+  "version": 1,
+  "updatedAt": "2026-01-15T10:30:00.000Z",
+  "regions": [
+    {
+      "name": "shanghai",
+      "file": "shanghai.pmtiles",
+      "bbox": [120.8, 30.6, 122.2, 31.8],
+      "center": [121.5, 31.2],
+      "minZoom": 0,
+      "maxZoom": 15,
+      "buildDate": "20260807",
+      "sizeBytes": 56425096
+    }
+  ]
+}
+```
+
+How the index stays in sync:
+
+| Command                                  | Effect on `pmtiles.json`                                                                                                         |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `extract <region>` / `metadata <region>` | upserts the region's entry                                                                                                       |
+| `update-metadata [dir]`                  | rebuilds it from the sidecars in a directory                                                                                     |
+| `upload <region>`                        | upserts, then uploads `pmtiles.json` with the region files                                                                       |
+| `rm <region>`                            | fetches the remote index, removes the region's entry and re-uploads it (falls back to the local index when no remote one exists) |
+| `sync-assets`                            | uploads the index as-is with the rest of `vine/pmtiles/`                                                                         |
+
+Deleting a region is a multi-object operation (tiles, then index) — if the
+final index upload fails, the catalog briefly points at deleted files; re-run
+`rm <region>` to finish the unpublish.
+
+`rm` also mirrors the published catalog back to the local index. The local
+`.pmtiles`/sidecar files are kept for dev — so note that running
+`update-metadata` (or `extract`/`metadata`/`upload` of another region)
+afterwards rebuilds the local index from the sidecars and will **re-add** the
+removed region. Delete its local files (or re-run `rm`) if you want it to stay
+unpublished.
+
+The individual `<region>.metadata.json` sidecars stay in place (backward
+compatible) — `pmtiles.json` is derived, never a replacement.
+
 ## 4. Local cache (`.maps-cache/`)
 
 Extracted files go to `.maps-cache/pmtiles/` at the repo root (gitignored,
@@ -66,7 +124,15 @@ byte-range requests against the same origin.
 pnpm --filter=@vine/maps-cli cli list      # regions + sidecar summary
 pnpm --filter=@vine/maps-cli cli verify tokyo   # pmtiles show + sidecar cross-check
 pnpm --filter=@vine/maps-cli cli metadata shanghai --build 20260807  # (re)write sidecar
+pnpm --filter=@vine/maps-cli cli update-metadata [dir]  # (re)write sidecars for every .pmtiles in a dir + rebuild pmtiles.json (default: cwd)
+pnpm --filter=@vine/maps-cli cli update-metadata [dir] --dry-run  # preview only, writes nothing
 ```
+
+`update-metadata` derives bbox/center/zoom from each file's own header (no
+preset needed), so it works for **any** pmtiles files dropped into a directory.
+`buildDate` is preserved from an existing sidecar (defaults to `local` for new
+files); corrupt sidecars are regenerated from the header. `--dry-run` prints
+the per-file plan and the resulting catalog size without writing anything.
 
 Glyphs (`label fonts`) live in `.maps-cache/glyphs/` and are served by the
 `glyph-proxy` plugin; a warm-up pass downloads every needed 256-codepoint range
@@ -85,18 +151,19 @@ pnpm --filter=@vine/maps-cli cli gcj2wgs 121.48 31.16
 
 ## 6. Common issues
 
-| Symptom                  | Cause / fix                                                                  |
-| ------------------------ | ---------------------------------------------------------------------------- |
-| Extract fails mid-stream | Local proxy flakiness on large downloads; retry, or lower `--maxzoom`        |
+| Symptom                  | Cause / fix                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| Extract fails mid-stream | Network flakiness on large downloads; retry, or lower `--maxzoom`             |
 | Blank map (gray)         | `pmtiles://` protocol not registered (it is auto-registered by MapController) |
-| Tiles 404                | Dev server not mounting `.maps-cache` (local-tiles plugin missing)           |
-| Chinese labels blank     | Glyph cache warmed from the `protomaps` source (no CJK); re-warm `maplibre`  |
-| MapLibre v6 blank        | v6 is incompatible with pmtiles — stay on the pinned v5                      |
-| Network download issues  | `HTTPS_PROXY=http://127.0.0.1:1095`                                          |
+| Tiles 404                | Dev server not mounting `.maps-cache` (local-tiles plugin missing)            |
+| Chinese labels blank     | Glyph cache warmed from the `protomaps` source (no CJK); re-warm `maplibre`   |
+| MapLibre v6 blank        | v6 is incompatible with pmtiles — stay on the pinned v5                       |
 
 ## 7. Extending regions
 
 Add a preset in `presets.ts` (name + bbox + default max zoom), then
-`extract <name>`; a fresh `metadata` write registers it for `list`/`verify`.
-For an irregular area use `--bbox` or crop with the Go CLI directly
-(`pmtiles extract <url> out.pmtiles --region=area.geojson`).
+`extract <name>`; a fresh `metadata` write registers it for `list`/`verify` and
+upserts it into `pmtiles.json`. For arbitrary pmtiles files (no preset), drop
+them in a directory and run `update-metadata` to generate sidecars + the
+catalog in one pass. For an irregular area use `--bbox` or crop with the Go CLI
+directly (`pmtiles extract <url> out.pmtiles --region=area.geojson`).

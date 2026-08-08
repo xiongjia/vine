@@ -7,6 +7,8 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md,mdx,json,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,mdx,json,yaml,yml}\"",
+    "format:md": "prettier --write \"**/*.{md,mdx}\"",
+    "format:md:check": "prettier --check \"**/*.{md,mdx}\"",
     "check-types": "turbo run check-types"
   },
   "devDependencies": {

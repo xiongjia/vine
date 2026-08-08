@@ -47,9 +47,6 @@ pnpm exec turbo run test                  # Run all tests
 pnpm exec turbo run test --filter=@vine/ui # Run UI tests only
 ```
 
-> Network operations (maps-cli extract, glyph warm-up) may need a proxy:
-> `HTTPS_PROXY=http://127.0.0.1:1095`.
-
 ## Coding Principles
 
 1. **No backend**: All data is static JSON/MDX bundled at build time.
@@ -62,9 +59,9 @@ pnpm exec turbo run test --filter=@vine/ui # Run UI tests only
 8. **`*-draft.md` files are temporary**: Draft docs (gitignored by `*-draft.md`) are scratch notes — never reference them from committed code, docs, or config. Committed docs live in `docs/*.md` (see `docs/` index in the README).
 9. **No unapproved commits; avoid pushing**: Never commit without the developer's explicit approval, and avoid pushing to the remote unless explicitly asked. Keep work local and staged — the developer decides when to commit and push.
 10. **Plan first, execute only on "start"**: When discussing a plan, do not begin executing it until the developer explicitly says to start (e.g. “开始” / “go”). Use the discussion to finalize the plan first.
-7. **Code review before push**: All changes should be reviewed before pushing to remote branches.
-8. **prettier formatting**: Run `pnpm format` before committing. VSCode saves with prettier automatically.
-9. **Debug with DOM dumps, not screenshots**: Models cannot view images by default — when debugging UI/layout issues, dump the rendered DOM (`chrome --headless --dump-dom`) or measure the live page via CDP `Runtime.evaluate` (element widths, classes, computed styles), and describe findings in **English** with concrete measured values. If WebGL is required (MapLibre maps), add `--enable-unsafe-swiftshader` to headless Chrome.
+11. **Code review before push**: All changes should be reviewed before pushing to remote branches.
+12. **prettier formatting**: Run `pnpm format` before committing. VSCode saves with prettier automatically.
+13. **Debug with DOM dumps, not screenshots**: Models cannot view images by default — when debugging UI/layout issues, dump the rendered DOM (`chrome --headless --dump-dom`) or measure the live page via CDP `Runtime.evaluate` (element widths, classes, computed styles), and describe findings in **English** with concrete measured values. If WebGL is required (MapLibre maps), add `--enable-unsafe-swiftshader` to headless Chrome.
 
 ## Commit Message Convention
 

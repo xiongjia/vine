@@ -13,7 +13,7 @@ declare module "*.mdx" {
 }
 
 interface ImportMetaEnv {
-  /** pmtiles URL prefix, e.g. pmtiles://https://cdn.example.com/data/pmtiles/ (injected as a CI build param) */
+  /** pmtiles URL prefix, e.g. pmtiles://https://cdn.example.com/vine/pmtiles/ (injected as a CI build param) */
   readonly VITE_PMTILES_URL_PREFIX?: string;
   /** Glyphs URL template (remote R2; falls back to the local /glyphs/...) */
   readonly VITE_GLYPHS_URL?: string;

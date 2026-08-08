@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { buildMetadata, writeMetadata } from "../lib/metadata";
+import { buildMetadata, upsertIndex, writeMetadata } from "../lib/metadata";
 import { findRepoRoot, pmtilesDir } from "../lib/repo-root";
 import { runPmtiles } from "../lib/run-pmtiles";
 import { REGION_PRESETS, resolveBbox } from "../presets";
@@ -62,6 +62,7 @@ export async function extractRegion(
     showText: show.stdout,
   });
   await writeMetadata(meta, outDir);
+  await upsertIndex(outDir, meta);
   console.log(
     `✓ ${out} + ${region}.metadata.json (${(meta.sizeBytes / 1024 / 1024).toFixed(1)} MB, ` +
       `zoom ${meta.minZoom}-${meta.maxZoom}, center ${meta.center.join(",")})`,

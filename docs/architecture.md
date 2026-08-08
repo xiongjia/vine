@@ -68,11 +68,11 @@ Sections are split into `apps/demo/src/components/examples/*`:
 The dev/preview Vite server mounts three plugins (from
 `@vine/ui/vite-plugins`):
 
-| Plugin | Mount | Purpose |
-| ------ | ----- | ------- |
-| `local-tiles` | `/pmtiles/*` | Serve `.maps-cache/pmtiles` with HTTP Range/206 |
-| `glyph-proxy` | `/glyphs/*` | Serve `.maps-cache/glyphs`, downloading on cache miss |
-| `widget-dist` | `/widget/*` | Serve the built widget (`packages/ui/dist/widget`) |
+| Plugin        | Mount        | Purpose                                               |
+| ------------- | ------------ | ----------------------------------------------------- |
+| `local-tiles` | `/pmtiles/*` | Serve `.maps-cache/pmtiles` with HTTP Range/206       |
+| `glyph-proxy` | `/glyphs/*`  | Serve `.maps-cache/glyphs`, downloading on cache miss |
+| `widget-dist` | `/widget/*`  | Serve the built widget (`packages/ui/dist/widget`)    |
 
 Tile/glyph URLs are injected at build time (`VITE_PMTILES_URL_PREFIX`,
 `VITE_GLYPHS_URL`); local dev defaults to the same-origin cache.
@@ -92,7 +92,7 @@ label rendering).
 A Node CLI (commander) for pmtiles region management. It shells out to the
 external `pmtiles` / `go-pmtiles` binary (installed by the developer; see
 [docs/pmtiles.md](./pmtiles.md)). Commands: `build-date`, `extract`,
-`metadata`, `verify`, `list`, `upload`, `rm`, `sync-assets`, `gcj2wgs`.
+`metadata`, `update-metadata`, `verify`, `list`, `upload`, `rm`, `sync-assets`, `gcj2wgs`.
 
 ---
 
@@ -109,24 +109,24 @@ files, ESM (`"type": "module"`), source-consumed via exports:
 
 ### Component inventory (current)
 
-| Component          | Notes                                                        |
-| ------------------ | ------------------------------------------------------------ |
-| `Button`           | Variants, sizes, asChild                                     |
-| `Card`             | Card + Header/Title/Description/Content/Footer               |
-| `Checkbox`         | Radix checkbox                                               |
-| `CodeBlock`        | Shiki syntax-highlighted code                                |
-| `CodeToggle`       | Collapsible example code block (used by demo)                |
-| `ComponentPreview` | Side-by-side preview + code for MDX playground               |
-| `Content`          | Prose typography wrapper                                     |
-| `Dialog` / `Sheet` | Radix dialogs (modal / slide-over)                           |
-| `GithubIcon`       | Inline SVG brand icon (lucide 1.x dropped brand icons)       |
-| `Header`           | Title + start/children/end slots                             |
-| `Input`            | Text input                                                   |
-| `MapView`          | MapLibre + Protomaps (see [docs/mapview.md](./mapview.md))   |
-| `Sidebar`          | Provider + Aside + Menu (used by playground)                 |
-| `ThemeToggle`      | Dark/light toggle persisted to localStorage                  |
-| `Tooltip`          | Radix tooltip                                                |
-| hooks              | `useIsMobile`, `useHashRoute`                                |
+| Component          | Notes                                                      |
+| ------------------ | ---------------------------------------------------------- |
+| `Button`           | Variants, sizes, asChild                                   |
+| `Card`             | Card + Header/Title/Description/Content/Footer             |
+| `Checkbox`         | Radix checkbox                                             |
+| `CodeBlock`        | Shiki syntax-highlighted code                              |
+| `CodeToggle`       | Collapsible example code block (used by demo)              |
+| `ComponentPreview` | Side-by-side preview + code for MDX playground             |
+| `Content`          | Prose typography wrapper                                   |
+| `Dialog` / `Sheet` | Radix dialogs (modal / slide-over)                         |
+| `GithubIcon`       | Inline SVG brand icon (lucide 1.x dropped brand icons)     |
+| `Header`           | Title + start/children/end slots                           |
+| `Input`            | Text input                                                 |
+| `MapView`          | MapLibre + Protomaps (see [docs/mapview.md](./mapview.md)) |
+| `Sidebar`          | Provider + Aside + Menu (used by playground)               |
+| `ThemeToggle`      | Dark/light toggle persisted to localStorage                |
+| `Tooltip`          | Radix tooltip                                              |
+| hooks              | `useIsMobile`, `useHashRoute`                              |
 
 Everything exported from `@vine/ui` has unit tests (77 total).
 
@@ -170,11 +170,11 @@ Key pieces:
 Defined in `.github/workflows/ci.yml`. Three jobs, no Pages deployment
 (temporarily disabled during the refactor):
 
-| Job | Steps |
-| --- | ----- |
-| `lint` | `turbo run lint` + `turbo run check-types` |
-| `test` | `turbo run test` (unit tests across all packages) |
-| `build` | `turbo run build` + `turbo run build:widget` |
+| Job     | Steps                                             |
+| ------- | ------------------------------------------------- |
+| `lint`  | `turbo run lint` + `turbo run check-types`        |
+| `test`  | `turbo run test` (unit tests across all packages) |
+| `build` | `turbo run build` + `turbo run build:widget`      |
 
 GitHub Pages deploy is commented/disabled; the restore instructions live in
 [docs/distribution.md](./distribution.md)
@@ -183,16 +183,16 @@ GitHub Pages deploy is commented/disabled; the restore instructions live in
 
 ## 6. Key Design Decisions
 
-| Decision                 | Choice                         | Rationale                                                                 |
-| ------------------------ | ------------------------------ | ------------------------------------------------------------------------- |
-| **No backend**           | Fully static                   | Zero operational cost, deployable to any static host                      |
-| **Map tiles**            | Protomaps pmtiles (vector)     | Small region files, HTTP Range reads, R2/S3-friendly, no API key          |
-| **MapLibre version**     | v5 pinned                      | v6 is incompatible with the pmtiles protocol                              |
-| **Region data**          | `.pmtiles` + `metadata.json`   | Lng/lat bounds available without parsing the binary                       |
-| **Cache naming**         | `.maps-cache/` at repo root    | Shared by all apps; plugins resolve via repo root (turbo runs per package)|
-| **Widget distribution**  | Static ESM files, no npm       | Hand JS/CSS to hosts or publish via R2                                    |
-| **Component docs**       | MDX + playground + unit tests  | Self-documenting with live previews                                       |
-| **CI**                   | lint/test/build, no deploy     | Pages deploy re-enabled after the refactor                                |
+| Decision                | Choice                                                           | Rationale                                                                                      |
+| ----------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **No backend**          | Fully static                                                     | Zero operational cost, deployable to any static host                                           |
+| **Map tiles**           | Protomaps pmtiles (vector)                                       | Small region files, HTTP Range reads, R2/S3-friendly, no API key                               |
+| **MapLibre version**    | v5 pinned                                                        | v6 is incompatible with the pmtiles protocol                                                   |
+| **Region data**         | `.pmtiles` + `*.metadata.json` sidecars + `pmtiles.json` catalog | Bounds available without parsing the binary; one catalog file lists every region and its tiles |
+| **Cache naming**        | `.maps-cache/` at repo root                                      | Shared by all apps; plugins resolve via repo root (turbo runs per package)                     |
+| **Widget distribution** | Static ESM files, no npm                                         | Hand JS/CSS to hosts or publish via R2                                                         |
+| **Component docs**      | MDX + playground + unit tests                                    | Self-documenting with live previews                                                            |
+| **CI**                  | lint/test/build, no deploy                                       | Pages deploy re-enabled after the refactor                                                     |
 
 ---
 

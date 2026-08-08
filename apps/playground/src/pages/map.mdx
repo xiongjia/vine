@@ -82,7 +82,10 @@ Pass `attribution` at init to override the default `PROTOMAPS_ATTRIBUTION`
 ```tsx preview
 <MapView
   className="rounded-md h-96"
-  basemap={{ url: "pmtiles:///pmtiles/shanghai.pmtiles", attribution: "© Example data source" }}
+  basemap={{
+    url: "pmtiles:///pmtiles/shanghai.pmtiles",
+    attribution: "© Example data source",
+  }}
   center={[121.47, 31.23]}
   zoom={12}
   markers={shanghaiMarkers}
@@ -91,20 +94,20 @@ Pass `attribution` at init to override the default `PROTOMAPS_ATTRIBUTION`
 
 ## API
 
-| Prop | Type | Default | Description |
-| ---- | ---- | ------- | ----------- |
-| `basemap` | `{ url, flavor?, lang?, glyphs?, attribution? }` | — | pmtiles URL + Protomaps flavor (light / dark / white / black / grayscale) |
-| `center` | `[number, number]` | — | Map center |
-| `zoom` | `number` | — | Zoom level |
-| `maxBounds` | `[[lng,lat],[lng,lat]]` | — | Camera constraint |
-| `markers` | `MarkerSpec[]` | `[]` | Markers (label / emoji / popupContent / color) |
-| `tracks` | `TrackSpec[]` | `[]` | Tracks (name / color / coordinates / closed) |
-| `openMarkerIndex` | `number` | — | Marker popup auto-opened on first render (default: none) |
-| `showCenterHud` | `boolean` | `false` | Live center / zoom HUD |
-| `navControl` | `boolean` | `true` | Navigation control |
-| `className` | `string` | — | Container class (controls size) |
-| `onMapReady` | `(map) => void` | — | Style-loaded callback |
-| `onClick` | `(e) => void` | — | Click event |
-| `onMove` | `(e) => void` | — | Move event |
-| `onZoom` | `(e) => void` | — | Zoom event |
-| `onIdle` | `(e) => void` | — | Idle event |
+| Prop              | Type                                             | Default | Description                                                               |
+| ----------------- | ------------------------------------------------ | ------- | ------------------------------------------------------------------------- |
+| `basemap`         | `{ url, flavor?, lang?, glyphs?, attribution? }` | —       | pmtiles URL + Protomaps flavor (light / dark / white / black / grayscale) |
+| `center`          | `[number, number]`                               | —       | Map center                                                                |
+| `zoom`            | `number`                                         | —       | Zoom level                                                                |
+| `maxBounds`       | `[[lng,lat],[lng,lat]]`                          | —       | Camera constraint                                                         |
+| `markers`         | `MarkerSpec[]`                                   | `[]`    | Markers (label / emoji / popupContent / color)                            |
+| `tracks`          | `TrackSpec[]`                                    | `[]`    | Tracks (name / color / coordinates / closed)                              |
+| `openMarkerIndex` | `number`                                         | —       | Marker popup auto-opened on first render (default: none)                  |
+| `showCenterHud`   | `boolean`                                        | `false` | Live center / zoom HUD                                                    |
+| `navControl`      | `boolean`                                        | `true`  | Navigation control                                                        |
+| `className`       | `string`                                         | —       | Container class (controls size)                                           |
+| `onMapReady`      | `(map) => void`                                  | —       | Style-loaded callback                                                     |
+| `onClick`         | `(e) => void`                                    | —       | Click event                                                               |
+| `onMove`          | `(e) => void`                                    | —       | Move event                                                                |
+| `onZoom`          | `(e) => void`                                    | —       | Zoom event                                                                |
+| `onIdle`          | `(e) => void`                                    | —       | Idle event                                                                |
