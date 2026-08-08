@@ -14,6 +14,34 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 import type { StorageConfig } from "./config";
 
 /**
+ * Content type for an uploaded key, inferred from its extension. Correct types
+ * matter beyond cosmetics: `map-widget.js` is loaded as a module script, and
+ * browsers enforce strict MIME checking on module scripts — serving it as
+ * `application/octet-stream` (the old catch-all) makes the embed page refuse
+ * to execute the widget. Mirrors the dev plugin's mapping in
+ * packages/ui/vite/plugins.ts; `.pmtiles` stays octet-stream (the client
+ * fetches raw bytes) and `.pbf` matches the glyph proxy's x-protobuf.
+ */
+export function contentTypeForKey(key: string): string {
+  switch (path.extname(key).toLowerCase()) {
+    case ".json":
+      return "application/json";
+    case ".js":
+      return "text/javascript";
+    case ".css":
+      return "text/css";
+    case ".pbf":
+      return "application/x-protobuf";
+    default:
+      // Unknown extension → assume binary. Deliberately not derived further
+      // (e.g. stripping a trailing .gz): a wrong text MIME here would break
+      // module-script loading all over again, while octet-stream is always
+      // safe for byte-fetched assets.
+      return "application/octet-stream";
+  }
+}
+
+/**
  * Proxy agent for R2/S3 requests, built from the standard `HTTPS_PROXY` /
  * `https_proxy` env vars (read at process start, like Node's own proxy
  * conventions). The AWS SDK creates its own keep-alive agents, which bypass
@@ -73,9 +101,7 @@ export async function uploadFile(
       Bucket: cfg.bucket,
       Key: key,
       Body: createReadStream(localPath),
-      ContentType: key.endsWith(".json")
-        ? "application/json"
-        : "application/octet-stream",
+      ContentType: contentTypeForKey(key),
     }),
   );
   console.log(`✓ ${key} (${info.size} bytes)`);

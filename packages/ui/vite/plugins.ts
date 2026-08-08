@@ -141,6 +141,8 @@ export function glyphProxyPlugin(cacheDir: string, upstream: string): Plugin {
       try {
         const info = await stat(file);
         if (info.isFile()) {
+          // x-protobuf matches the R2 glyph uploads (contentTypeForKey in
+          // apps/maps-cli/src/lib/storage.ts).
           res.setHeader("Content-Type", "application/x-protobuf");
           res.setHeader("Content-Length", String(info.size));
           createReadStream(file).pipe(res);
@@ -194,6 +196,8 @@ export function widgetDistPlugin(widgetDir: string): Plugin {
         const info = await stat(file);
         if (info.isFile()) {
           const ext = path.extname(file);
+          // Keep in sync with contentTypeForKey() in apps/maps-cli/src/lib/storage.ts
+          // (the published-MIME contract for R2/S3 uploads).
           res.setHeader(
             "Content-Type",
             ext === ".js"

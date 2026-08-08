@@ -1,6 +1,33 @@
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { afterEach, describe, expect, it } from "vitest";
-import { proxyAgent } from "./storage";
+import { contentTypeForKey, proxyAgent } from "./storage";
+
+describe("contentTypeForKey", () => {
+  it("maps the published asset extensions to their MIME types", () => {
+    expect(contentTypeForKey("widget/map-widget.js")).toBe("text/javascript");
+    expect(contentTypeForKey("widget/map-widget.css")).toBe("text/css");
+    expect(contentTypeForKey("pmtiles/pmtiles.json")).toBe("application/json");
+    expect(contentTypeForKey("pmtiles/shanghai.metadata.json")).toBe(
+      "application/json",
+    );
+    expect(contentTypeForKey("glyphs/Noto Sans Regular/0-255.pbf")).toBe(
+      "application/x-protobuf",
+    );
+  });
+
+  it("keeps octet-stream for binary tiles and unknown extensions", () => {
+    expect(contentTypeForKey("pmtiles/shanghai.pmtiles")).toBe(
+      "application/octet-stream",
+    );
+    expect(contentTypeForKey("assets/logo.bin")).toBe(
+      "application/octet-stream",
+    );
+  });
+
+  it("is case-insensitive on the extension", () => {
+    expect(contentTypeForKey("widget/Map-Widget.JS")).toBe("text/javascript");
+  });
+});
 
 describe("proxyAgent", () => {
   // proxyAgent() reads `HTTPS_PROXY ?? https_proxy` — save/restore both so the
