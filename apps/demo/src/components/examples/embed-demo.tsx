@@ -1,4 +1,5 @@
-// embed.html is mounted at /vine/examples/ by the demo dev/preview widget-dist plugin
+// embed.html is served at /vine/examples/ by the demo embed-html plugin
+// (dev/preview middleware + build-time emit, see vite-embed-html.ts)
 const EMBED_URL = "/vine/examples/embed.html";
 
 /** Embed demo — link to the plain-HTML widget example. */
