@@ -1,8 +1,10 @@
 import { createReadStream } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { Readable } from "node:stream";
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
@@ -23,11 +25,19 @@ export async function uploadFile(
   key: string,
   dryRun = false,
 ): Promise<void> {
-  const info = await stat(localPath);
   if (dryRun) {
-    console.log(`[dry-run] ${localPath} -> s3://${cfg.bucket}/${key} (${info.size} bytes)`);
+    // preview only — tolerate files that don't exist yet (e.g. pmtiles.json
+    // is created by the same command right before the upload loop)
+    let size = "";
+    try {
+      size = ` (${(await stat(localPath)).size} bytes)`;
+    } catch {
+      // missing in a dry-run is fine
+    }
+    console.log(`[dry-run] ${localPath} -> s3://${cfg.bucket}/${key}${size}`);
     return;
   }
+  const info = await stat(localPath);
   const s3 = makeS3(cfg);
   await s3.send(
     new PutObjectCommand({
@@ -48,6 +58,37 @@ export async function deleteObject(cfg: StorageConfig, key: string, dryRun = fal
   const s3 = makeS3(cfg);
   await s3.send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: key }));
   console.log(`✗ ${key} deleted`);
+}
+
+/** Drain a node `Readable` stream into a UTF-8 string. */
+async function streamToString(stream: Readable): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+/**
+ * Fetch an object's text content; returns null when the key does not exist.
+ * (Node-only: `Body` is always a node `Readable` here, see the
+ * `StreamingBlobTypes` union which also covers browser builds.)
+ */
+export async function getObject(
+  cfg: StorageConfig,
+  key: string,
+): Promise<string | null> {
+  const s3 = makeS3(cfg);
+  try {
+    const out = await s3.send(
+      new GetObjectCommand({ Bucket: cfg.bucket, Key: key }),
+    );
+    if (!out.Body) return null;
+    return await streamToString(out.Body as Readable);
+  } catch (err) {
+    if ((err as { name?: string }).name === "NoSuchKey") return null;
+    throw err;
+  }
 }
 
 /** Recursively upload every file in a directory (relative paths kept, prefix prepended). */

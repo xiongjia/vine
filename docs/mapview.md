@@ -99,14 +99,19 @@ Notes:
 const w = createMapWidget(el, {
   basemapUrl: "pmtiles:///pmtiles/shanghai.pmtiles", // host serves this (HTTP Range)
   glyphsUrl: "/glyphs/{fontstack}/{range}.pbf",
-  center, zoom, markers, tracks, attribution,
-  showCenterHud, navControl,
+  center,
+  zoom,
+  markers,
+  tracks,
+  attribution,
+  showCenterHud,
+  navControl,
 });
 
-w.setData({ markers, tracks });          // replace data at runtime
-w.setBasemap(url, { center, zoom });     // switch region file (map recreated)
-w.flyTo({ center, zoom });               // camera (queued until ready)
-w.destroy();                             // unmount + release the map
+w.setData({ markers, tracks }); // replace data at runtime
+w.setBasemap(url, { center, zoom }); // switch region file (map recreated)
+w.flyTo({ center, zoom }); // camera (queued until ready)
+w.destroy(); // unmount + release the map
 ```
 
 The widget is built as a self-contained ESM bundle (React + MapLibre bundled):

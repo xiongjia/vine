@@ -1,12 +1,20 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { storageConfig, loadEnv, type StorageKind } from "../lib/config";
+import {
+  storageConfig,
+  storageRoot,
+  loadEnv,
+  type StorageKind,
+} from "../lib/config";
 import { findRepoRoot, glyphsDir, pmtilesDir } from "../lib/repo-root";
 import { uploadDir } from "../lib/storage";
 
 export interface SyncOptions {
   storage: StorageKind;
   bucket?: string;
+  /** Root dir for published assets (default: vine, or VINE_STORAGE_ROOT). */
+  root?: string;
+  /** Full override for the base path (wins over --root). */
   prefix?: string;
   dryRun?: boolean;
 }
@@ -21,7 +29,7 @@ export async function syncAssets(opts: SyncOptions): Promise<void> {
   loadEnv();
   const cfg = storageConfig(opts.storage, opts.bucket);
   const repoRoot = findRepoRoot();
-  const prefix = opts.prefix ?? "data";
+  const prefix = opts.prefix ?? storageRoot(opts.root);
 
   const widgetDir = path.join(repoRoot, "packages/ui/dist/widget");
   const pmDir = pmtilesDir(repoRoot);

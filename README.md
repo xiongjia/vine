@@ -28,8 +28,6 @@ pnpm exec turbo run build
 pnpm exec turbo run test
 ```
 
-> Network operations may need `HTTPS_PROXY=http://127.0.0.1:1095`.
-
 ## Documentation
 
 - **[docs/architecture.md](docs/architecture.md)** — monorepo layout, apps,

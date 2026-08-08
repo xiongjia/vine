@@ -26,10 +26,12 @@ export async function listRegions(): Promise<void> {
         `${region.padEnd(10)} ${(m.sizeBytes / 1024 / 1024).toFixed(1).padStart(6)}MB  ` +
           `bbox ${m.bbox.join(",")}  center ${m.center.join(",")}  z${m.minZoom}-${m.maxZoom}  build ${m.buildDate}`,
       );
-    } catch {
-      console.log(
-        `${region.padEnd(10)} ?  (no sidecar — run extract to regenerate)`,
-      );
+    } catch (err) {
+      const reason =
+        (err as NodeJS.ErrnoException).code === "ENOENT"
+          ? "no sidecar — run extract to regenerate"
+          : "corrupt sidecar — run update-metadata";
+      console.log(`${region.padEnd(10)} ?  (${reason})`);
     }
   }
 }

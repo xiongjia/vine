@@ -4,6 +4,7 @@ import { gcj02ToWgs84 } from "./lib/gcj02";
 import { latestBuildDate } from "./commands/build-date";
 import { extractRegion } from "./commands/extract";
 import { generateMetadata } from "./commands/metadata";
+import { updateMetadataInDir } from "./commands/update-metadata";
 import { verifyRegion } from "./commands/verify";
 import { listRegions } from "./commands/list";
 import { uploadRegion } from "./commands/upload";
@@ -17,8 +18,7 @@ program
   .name("vine-maps")
   .description(
     "PMTiles region basemap generation & upload tool. Depends on the external pmtiles command (brew install pmtiles " +
-      "or go install github.com/protomaps/go-pmtiles@latest). " +
-      "Use HTTPS_PROXY=http://127.0.0.1:1095 if downloads fail.",
+      "or go install github.com/protomaps/go-pmtiles@latest).",
   )
   .version("0.1.0");
 
@@ -62,6 +62,16 @@ program
   });
 
 program
+  .command("update-metadata [dir]")
+  .description(
+    "regenerate metadata sidecars for every .pmtiles in a directory and rebuild pmtiles.json (default: current directory)",
+  )
+  .option("--dry-run", "print what would change without writing anything")
+  .action(async (dir: string | undefined, opts: { dryRun?: boolean }) => {
+    await updateMetadataInDir({ dir, dryRun: opts.dryRun });
+  });
+
+program
   .command("verify <region>")
   .description("run pmtiles show and cross-check the sidecar metadata")
   .action(async (region: string) => {
@@ -80,7 +90,11 @@ program
   .description("upload pmtiles + metadata.json to R2/S3")
   .option("--storage <r2|s3>", "storage type", "r2")
   .option("--bucket <name>", "bucket name (overrides .env)")
-  .option("--prefix <path>", "object prefix", "data/pmtiles")
+  .option(
+    "--root <dir>",
+    "storage root directory (default: vine, or VINE_STORAGE_ROOT)",
+  )
+  .option("--prefix <path>", "object prefix (default: <root>/pmtiles)")
   .option("--dry-run", "print only, do not upload")
   .action(
     async (
@@ -88,6 +102,7 @@ program
       opts: {
         storage: "r2" | "s3";
         bucket?: string;
+        root?: string;
         prefix?: string;
         dryRun?: boolean;
       },
@@ -101,7 +116,11 @@ program
   .description("delete remote pmtiles + metadata.json")
   .option("--storage <r2|s3>", "storage type", "r2")
   .option("--bucket <name>", "bucket name (overrides .env)")
-  .option("--prefix <path>", "object prefix", "data/pmtiles")
+  .option(
+    "--root <dir>",
+    "storage root directory (default: vine, or VINE_STORAGE_ROOT)",
+  )
+  .option("--prefix <path>", "object prefix (default: <root>/pmtiles)")
   .option("--dry-run", "print only, do not delete")
   .action(
     async (
@@ -109,6 +128,7 @@ program
       opts: {
         storage: "r2" | "s3";
         bucket?: string;
+        root?: string;
         prefix?: string;
         dryRun?: boolean;
       },
@@ -124,12 +144,17 @@ program
   )
   .option("--storage <r2|s3>", "storage type", "r2")
   .option("--bucket <name>", "bucket name (overrides .env)")
-  .option("--prefix <path>", "object prefix", "data")
+  .option(
+    "--root <dir>",
+    "storage root directory (default: vine, or VINE_STORAGE_ROOT)",
+  )
+  .option("--prefix <path>", "object prefix (default: <root>)")
   .option("--dry-run", "print only, do not sync")
   .action(
     async (opts: {
       storage: "r2" | "s3";
       bucket?: string;
+      root?: string;
       prefix?: string;
       dryRun?: boolean;
     }) => {

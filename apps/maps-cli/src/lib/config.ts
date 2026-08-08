@@ -51,3 +51,18 @@ export function storageConfig(
   }
   return cfg;
 }
+
+/**
+ * Root directory for published assets (`<bucket>/<root>/widget|pmtiles|glyphs`).
+ * The `--root` flag wins, then env `VINE_STORAGE_ROOT`, default `"vine"`;
+ * `--prefix` overrides the full path. Rejects empty / leading-slash roots.
+ */
+export function storageRoot(rootOverride?: string): string {
+  const root = rootOverride ?? process.env.VINE_STORAGE_ROOT ?? "vine";
+  if (root.trim() === "" || root.startsWith("/")) {
+    throw new Error(
+      `invalid storage root: "${root}" (expected non-empty, no leading slash)`,
+    );
+  }
+  return root;
+}
