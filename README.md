@@ -6,7 +6,7 @@ playground. No backend — everything is built statically.
 
 ```
 vine/
-├── apps/demo/            # MapView showcase (future GitHub Pages entry)
+├── apps/demo/            # MapView showcase (GitHub Pages entry)
 ├── apps/playground/      # UI component docs sandbox
 ├── apps/maps-cli/        # pmtiles extract & R2/S3 upload CLI
 ├── packages/ui/          # shadcn/ui components + MapView + vite plugins
@@ -38,6 +38,8 @@ pnpm exec turbo run test
   `maps-cli`, region presets, metadata sidecar, local cache
 - **[docs/distribution.md](docs/distribution.md)** — distributing via S3-compatible
   storage (R2/S3) or static widget files: bucket config, sync-assets, build-time URLs
+- **[docs/ci.md](docs/ci.md)** — CI pipeline and GitHub Pages deployment, including
+  the required repo-level Actions variables for the R2 tile/glyph URLs
 
 ## License
 
