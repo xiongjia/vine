@@ -3,9 +3,10 @@
  * is the thin vite wrapper around this module).
  *
  * The build externalizes third-party runtime deps (react, maplibre, pmtiles,
- * protomaps): `map-widget.js` keeps bare import specifiers and the host page
- * resolves them through an import map, so callers can serve the heavy
- * libraries from their own CDN instead of shipping them inside the bundle
+ * protomaps): rollup `output.paths` rewrites the bare imports to absolute
+ * esm.sh URLs inside `map-widget.js`, so the host page needs no import map
+ * (Chrome 151 does not apply import maps at all) and callers can serve the
+ * heavy libraries from any CDN instead of shipping them inside the bundle
  * (~1.9MB → a few KB).
  *
  * All emitted files are content-hashed (`map-widget-<hash>.js|css`,
@@ -35,9 +36,10 @@ import type { WidgetManifest, WidgetManifestFile } from "./widget-manifest";
 const require = createRequire(import.meta.url);
 
 /**
- * Bare specifiers left in the widget bundle and resolved by the host page's
- * import map. Exact-string matching: `maplibre-gl/dist/maplibre-gl.css`
- * (a different specifier) is still resolved and bundled into widget.css.
+ * Bare specifiers externalized from the widget bundle and rewritten to
+ * absolute CDN URLs by rollup `output.paths` (see vite.lib.config.ts).
+ * Exact-string matching: `maplibre-gl/dist/maplibre-gl.css` (a different
+ * specifier) is still resolved and bundled into widget.css.
  */
 export const EXTERNAL_DEPS = [
   "react",
@@ -86,17 +88,20 @@ function installedVersion(specifier: string): string {
   }
 }
 
-const CDN_BASE = "https://cdn.jsdelivr.net/npm";
+const CDN_BASE = "https://esm.sh";
 
 /**
- * jsdelivr `+esm` URL for a bare specifier, pinned to the installed version:
- * `react/jsx-runtime` → `…/react@19.2.7/jsx-runtime/+esm` (the version sits
- * after the package name, before any subpath).
+ * esm.sh URL for a bare specifier, pinned to the installed version:
+ * `react/jsx-runtime` → `…/react@19.2.7/jsx-runtime` (esm.sh subpaths are
+ * plain path segments). esm.sh — not jsdelivr `+esm` — because maplibre-gl
+ * ships an AMD/UMD bundle whose named exports (Map, Marker, Popup, …) only
+ * esm.sh's transform preserves (jsdelivr's esbuild conversion produces a
+ * default-only export and `import { Marker }` fails at runtime).
  */
 function cdnUrl(specifier: string, version: string): string {
   const name = packageName(specifier);
   const subpath = specifier.slice(name.length);
-  return `${CDN_BASE}/${name}@${version}${subpath ? `${subpath}/` : "/"}+esm`;
+  return `${CDN_BASE}/${name}@${version}${subpath}`;
 }
 
 /**
@@ -127,12 +132,19 @@ function uiPackageVersion(): string {
 /**
  * Bare specifier → CDN URL, pinned to the exact installed versions so the
  * host page always loads the same react / maplibre / pmtiles the widget was
- * built and tested against. The `+esm` suffix runs jsdelivr's ESM transform:
- * required for react / react-dom (CJS-only — a raw unpkg import would fail on
- * the NODE_ENV guard), and keeps every dep on one consistent CDN. Callers may
- * override any entry with their own CDN or self-hosted files.
+ * built and tested against. esm.sh serves production builds (NODE_ENV set),
+ * resolves subpaths like `react/jsx-runtime`, and is the only one of the
+ * common ESM CDNs whose transform keeps maplibre-gl's named exports (the
+ * package ships AMD/UMD — jsdelivr `+esm` drops them). Callers may override
+ * any entry with their own CDN or self-hosted files.
+ *
+ * Also used as rollup `output.paths` in vite.lib.config.ts, which rewrites
+ * the bundle's bare imports to these absolute URLs — the emitted
+ * `map-widget.js` imports `https://esm.sh/…` directly, so the host page
+ * needs no import map (Chrome 151 does not apply import maps at all;
+ * the widget must load without one).
  */
-function buildImportMap(): Record<string, string> {
+export function buildImportMap(): Record<string, string> {
   const react = installedVersion("react");
   const reactDom = installedVersion("react-dom");
   const maplibreGl = installedVersion("maplibre-gl");

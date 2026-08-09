@@ -95,7 +95,7 @@ describe("widgetManifestPlugin", () => {
     // dependencies use the { version, cdn } object form, pinned to real installs
     expect(manifest.dependencies.react).toMatchObject({
       version: expect.any(String),
-      cdn: expect.stringContaining("+esm"),
+      cdn: expect.stringContaining("esm.sh/"),
     });
     // The standalone import-map file matches the manifest's importMap.
     expect(

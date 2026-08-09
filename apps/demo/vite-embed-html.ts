@@ -10,9 +10,10 @@
  * prefix because the bundle lives in the same storage root.
  *
  * The widget build (`build:widget`) emits content-hashed files plus a
- * `widget.json` manifest (entry/css names + the ready-to-use import map for
- * the externalized react / maplibre / pmtiles deps) — this plugin reads that
- * manifest and injects the hashed URLs and the import map into the template.
+ * `widget.json` manifest (entry/css names, per-file hashes, pinned dep
+ * versions + CDN URLs) — this plugin reads that manifest and injects the
+ * hashed URLs into the template (no import map: the bundle imports its deps
+ * as absolute esm.sh URLs directly).
  *
  * - dev: middleware serves the template at `<base>examples/embed.html` with
  *   same-origin URLs backed by the local plugins
@@ -32,7 +33,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const WIDGET_CSS_TOKEN = "__VINE_WIDGET_CSS__";
 export const WIDGET_JS_TOKEN = "__VINE_WIDGET_JS__";
-export const WIDGET_IMPORT_MAP_TOKEN = "__VINE_WIDGET_IMPORT_MAP__";
 export const PMTILES_PREFIX_TOKEN = "__VINE_PMTILES_PREFIX__";
 export const GLYPHS_URL_TOKEN = "__VINE_GLYPHS_URL__";
 
@@ -67,8 +67,6 @@ export function readWidgetManifest(widgetDir: string): WidgetManifest {
 export interface EmbedHtmlUrls {
   widgetCss: string;
   widgetJs: string;
-  /** JSON text for `<script type="importmap">`, HTML-escaped (externalized deps). */
-  widgetImportMapJson: string;
   pmtilesPrefix: string;
   glyphs: string;
 }
@@ -76,6 +74,8 @@ export interface EmbedHtmlUrls {
 /**
  * Resolve the URLs from build-time env + the widget manifest, falling back to
  * dev defaults for the tile/glyph URLs. `manifest` is injectable for tests.
+ * No import map is injected: the bundle already imports its external deps as
+ * absolute CDN URLs (rollup `output.paths`), so the page loads without one.
  */
 export function embedHtmlUrls(
   env: Record<string, string | undefined>,
@@ -86,12 +86,6 @@ export function embedHtmlUrls(
   return {
     widgetCss: `${root}/widget/${manifest.css}`,
     widgetJs: `${root}/widget/${manifest.entry}`,
-    // Escape `<` so a malicious import-map value can never close the
-    // surrounding `<script>` tag inside the injected template.
-    widgetImportMapJson: JSON.stringify(manifest.importMap).replace(
-      /</g,
-      "\\u003c",
-    ),
     pmtilesPrefix: prefix,
     glyphs: env.VITE_GLYPHS_URL ?? DEFAULT_GLYPHS_URL,
   };
@@ -106,7 +100,6 @@ export function renderEmbedHtml(template: string, urls: EmbedHtmlUrls): string {
   const tokens: Array<[string, string]> = [
     [WIDGET_CSS_TOKEN, urls.widgetCss],
     [WIDGET_JS_TOKEN, urls.widgetJs],
-    [WIDGET_IMPORT_MAP_TOKEN, urls.widgetImportMapJson],
     [PMTILES_PREFIX_TOKEN, urls.pmtilesPrefix],
     [GLYPHS_URL_TOKEN, urls.glyphs],
   ];

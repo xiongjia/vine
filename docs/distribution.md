@@ -320,51 +320,38 @@ What `<bucket-domain>` is, per provider:
 
 Hand the `widget.json` manifest to a host that serves the pmtiles (Range),
 glyphs and the hashed files. The widget's react / maplibre / pmtiles deps are
-externalized, so the page must resolve them with an import map — take the
-ready-to-paste one from `widget.json` and override any entry to use a
-different CDN. The manifest lists each dependency with its pinned version and
-CDN URL:
+externalized and **imported as absolute esm.sh URLs directly inside the
+bundle** (rollup `output.paths`) — the page needs **no import map** (Chrome
+151 does not apply import maps at all, and the widget must load without one).
+The manifest lists each dependency with its pinned version and CDN URL, so
+callers can see (and, by re-building, change) exactly what the bundle pulls
+in:
 
 ```json
 {
   "version": "0.0.0",
-  "entry": "map-widget-ba8b6886988e.js",
+  "entry": "map-widget-830c8f0d6cf7.js",
   "css": "map-widget-6d4cf0bf511b.css",
   "files": [
     {
-      "name": "map-widget-ba8b6886988e.js",
-      "hash": "ba8b6886988e675a87a1c31c965f27b45a94e3f66f559c5dc16eda42669867ad",
+      "name": "map-widget-830c8f0d6cf7.js",
+      "hash": "830c8f0d6cf7…",
       "size": 7884
     }
   ],
   "dependencies": {
-    "react": {
-      "version": "19.2.7",
-      "cdn": "https://cdn.jsdelivr.net/npm/react@19.2.7/+esm"
-    }
+    "react": { "version": "19.2.7", "cdn": "https://esm.sh/react@19.2.7" }
   },
   "importMap": {
-    "react": "https://cdn.jsdelivr.net/npm/react@19.2.7/+esm"
+    "react": "https://esm.sh/react@19.2.7"
   }
 }
 ```
 
-A minimal host page:
+A minimal host page — just the css + the hashed entry module:
 
 ```html
 <link rel="stylesheet" href="map-widget-<hash>.css" />
-<script type="importmap">
-  {
-    "imports": {
-      "react": "https://cdn.jsdelivr.net/npm/react@19.2.7/+esm",
-      "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@19.2.7/jsx-runtime/+esm",
-      "react-dom/client": "https://cdn.jsdelivr.net/npm/react-dom@19.2.7/client/+esm",
-      "maplibre-gl": "https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/+esm",
-      "pmtiles": "https://cdn.jsdelivr.net/npm/pmtiles@4.4.1/+esm",
-      "@protomaps/basemaps": "https://cdn.jsdelivr.net/npm/@protomaps/basemaps@5.7.2/+esm"
-    }
-  }
-</script>
 <script type="module">
   import { createMapWidget } from "./map-widget-<hash>.js";
   const w = createMapWidget(el, {
@@ -376,13 +363,16 @@ A minimal host page:
 </script>
 ```
 
-The `+esm` suffix is jsdelivr's ESM transform — react / react-dom ship CJS
-only, so a raw file server (e.g. unpkg) cannot serve them as ESM; maplibre /
-pmtiles / protomaps also resolve through the same CDN for one consistent
-source. The bundle itself is terser-minified (single line, fully mangled) and
-content-hashed, so `widget.json` is the version marker: a new build changes
-the entry filename (browsers never serve a stale cached copy) and the manifest
-lists the exact dependency versions the bundle was built against.
+Why esm.sh: react / react-dom ship CJS (a raw file server cannot serve them
+as ESM) and maplibre-gl ships an AMD/UMD bundle whose named exports (`Map`,
+`Marker`, `Popup`, …) only esm.sh's transform preserves — jsdelivr's `+esm`
+drops them and `import { Marker }` fails at runtime. The `importMap` field in
+`widget.json` is a ready-to-paste bare→URL map for callers that prefer their
+own import-map setup; the bundle itself works without one. The bundle is
+terser-minified (single line, fully mangled) and content-hashed, so
+`widget.json` is the version marker: a new build changes the entry filename
+(browsers never serve a stale cached copy) and the manifest lists the exact
+dependency versions the bundle was built against.
 
 ## 6. GitHub Pages deployment
 
