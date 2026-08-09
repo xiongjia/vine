@@ -1,7 +1,11 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import { EXTERNAL_DEPS, widgetManifestPlugin } from "./src/lib/widget-build";
+import {
+  EXTERNAL_DEPS,
+  buildImportMap,
+  widgetManifestPlugin,
+} from "./src/lib/widget-build";
 
 /**
  * Library build for the embeddable map widget (see src/widget.tsx).
@@ -38,6 +42,9 @@ export default defineConfig({
       external: [...EXTERNAL_DEPS],
       output: {
         assetFileNames: "map-widget.css",
+        // Rewrite the externalized bare imports to absolute CDN URLs — the
+        // host page then needs no import map (Chrome 151 does not apply them).
+        paths: buildImportMap(),
       },
     },
     outDir: "dist/widget",

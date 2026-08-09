@@ -114,23 +114,26 @@ w.flyTo({ center, zoom }); // camera (queued until ready)
 w.destroy(); // unmount + release the map
 ```
 
-The widget is built with react / maplibre / pmtiles **externalized**: the
-bundle keeps bare imports that the host page resolves through an import map
-(react, react-dom, maplibre-gl, pmtiles, @protomaps/basemaps), so the heavy
-libraries can be served from any CDN (jsdelivr `+esm` pinned versions by
-default — required for react / react-dom, which ship CJS only):
+The widget is built with react / maplibre / pmtiles **externalized**
+(react, react-dom, maplibre-gl, pmtiles, @protomaps/basemaps): rollup
+`output.paths` rewrites the bare imports to **absolute esm.sh URLs** inside
+the bundle, so the page needs **no import map** (Chrome 151 does not apply
+import maps at all; the widget must load without one). esm.sh is required for
+maplibre-gl — the package ships AMD/UMD and only esm.sh's transform keeps its
+named exports (`Map`, `Marker`, `Popup`, …):
 
 ```bash
 pnpm exec turbo run build:widget --filter=@vine/ui
 # → packages/ui/dist/widget/map-widget-<hash>.js|css, import-map-<hash>.json, widget.json
 ```
 
-Files are content-hashed (`map-widget-ba8b6886988e.js`), so the filename
+Files are content-hashed (`map-widget-830c8f0d6cf7.js`), so the filename
 changes whenever the bundle changes and a stale cached copy is never served.
 `widget.json` is the manifest consumers actually read: entry/css names,
-per-file hashes, pinned dependency versions and the ready-to-paste import map.
-The host page includes `<script type="importmap">…</script>` (any entry can be
-overridden with a different CDN) before importing the hashed entry module.
+per-file hashes, pinned dependency versions and their CDN URLs (`importMap`
+is the ready-to-paste bare→URL map for callers who prefer their own import-map
+setup). The host page just loads the hashed entry module — no import map
+needed.
 
 ## 6. Version & Compatibility Notes
 

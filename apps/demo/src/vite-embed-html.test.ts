@@ -9,7 +9,6 @@ import {
   storageRoot,
   WIDGET_CSS_TOKEN,
   WIDGET_JS_TOKEN,
-  WIDGET_IMPORT_MAP_TOKEN,
   PMTILES_PREFIX_TOKEN,
   GLYPHS_URL_TOKEN,
   type WidgetManifest,
@@ -58,7 +57,6 @@ describe("embedHtmlUrls", () => {
     expect(embedHtmlUrls({}, MANIFEST)).toEqual({
       widgetCss: "/widget/map-widget-0123456789ab.css",
       widgetJs: "/widget/map-widget-0123456789ab.js",
-      widgetImportMapJson: JSON.stringify(MANIFEST.importMap),
       pmtilesPrefix: "pmtiles:///pmtiles/",
       glyphs: "/glyphs/{fontstack}/{range}.pbf",
     });
@@ -78,21 +76,9 @@ describe("embedHtmlUrls", () => {
         "https://cdn.example.com/vine/widget/map-widget-0123456789ab.css",
       widgetJs:
         "https://cdn.example.com/vine/widget/map-widget-0123456789ab.js",
-      widgetImportMapJson: JSON.stringify(MANIFEST.importMap),
       pmtilesPrefix: R2_PREFIX,
       glyphs: R2_GLYPHS,
     });
-  });
-
-  it("HTML-escapes the import map so it cannot break out of the script tag", () => {
-    const hostile: WidgetManifest = {
-      ...MANIFEST,
-      importMap: {
-        x: "https://evil.example/</script><script>alert(1)</script>",
-      },
-    };
-    expect(embedHtmlUrls({}, hostile).widgetImportMapJson).not.toContain("<");
-    expect(embedHtmlUrls({}, hostile).widgetImportMapJson).toContain("\\u003c");
   });
 });
 
@@ -112,7 +98,6 @@ describe("readWidgetManifest", () => {
 describe("renderEmbedHtml", () => {
   const template = [
     `<link rel="stylesheet" href="${WIDGET_CSS_TOKEN}" />`,
-    `<script type="importmap">\n  ${WIDGET_IMPORT_MAP_TOKEN}\n</script>`,
     `import { createMapWidget } from "${WIDGET_JS_TOKEN}";`,
     `url: "${PMTILES_PREFIX_TOKEN}shanghai.pmtiles",`,
     `glyphsUrl: "${GLYPHS_URL_TOKEN}",`,
@@ -130,7 +115,6 @@ describe("renderEmbedHtml", () => {
     expect(html).toBe(
       [
         `<link rel="stylesheet" href="https://cdn.example.com/vine/widget/map-widget-0123456789ab.css" />`,
-        `<script type="importmap">\n  ${JSON.stringify(MANIFEST.importMap)}\n</script>`,
         `import { createMapWidget } from "https://cdn.example.com/vine/widget/map-widget-0123456789ab.js";`,
         `url: "${R2_PREFIX}shanghai.pmtiles",`,
         `glyphsUrl: "${R2_GLYPHS}",`,
