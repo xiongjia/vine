@@ -117,11 +117,11 @@ describe("MapController constructor", () => {
   it("disables the built-in control and adds its own with the default attribution", () => {
     const c = makeController();
 
-    const opts = ctorOptions[ctorOptions.length - 1];
+    const opts = ctorOptions[ctorOptions.length - 1]!;
     expect(opts.attributionControl).toBe(false);
     expect(addCalls).toHaveLength(1);
-    expect(addCalls[0].position).toBe("bottom-right");
-    expect(addCalls[0].control.options).toEqual({
+    expect(addCalls[0]!.position).toBe("bottom-right");
+    expect(addCalls[0]!.control.options).toEqual({
       compact: true,
       customAttribution: PROTOMAPS_ATTRIBUTION,
     });
@@ -139,7 +139,7 @@ describe("MapController constructor", () => {
       navControl: false,
     });
 
-    expect(addCalls[0].control.options).toEqual({
+    expect(addCalls[0]!.control.options).toEqual({
       compact: true,
       customAttribution: "© Example Co · Protomaps",
     });
@@ -167,7 +167,7 @@ describe("MapController.setStyle attribution sync", () => {
     c.setStyle({ url: "pmtiles:///x", attribution: "© B" });
     expect(removeCalls).toHaveLength(1);
     expect(addCalls).toHaveLength(2);
-    expect(addCalls[1].control.options).toEqual({
+    expect(addCalls[1]!.control.options).toEqual({
       compact: true,
       customAttribution: "© B",
     });
@@ -184,7 +184,7 @@ describe("MapController.setStyle attribution sync", () => {
     });
 
     c.setStyle({ url: "pmtiles:///x" });
-    expect(addCalls[1].control.options).toEqual({
+    expect(addCalls[1]!.control.options).toEqual({
       compact: true,
       customAttribution: PROTOMAPS_ATTRIBUTION,
     });
@@ -209,7 +209,7 @@ describe("MapController.setStyle attribution sync", () => {
     expect(setStyleMock).toHaveBeenCalledTimes(1);
     expect(removeCalls).toHaveLength(1);
     expect(addCalls).toHaveLength(2);
-    expect(addCalls[1].control.options).toEqual({
+    expect(addCalls[1]!.control.options).toEqual({
       compact: true,
       customAttribution: "© B",
     });
