@@ -1,4 +1,8 @@
-import { Map as MapLibreMap, NavigationControl } from "maplibre-gl";
+import {
+  AttributionControl,
+  Map as MapLibreMap,
+  NavigationControl,
+} from "maplibre-gl";
 import type {
   FitBoundsOptions,
   LayerSpecification,
@@ -7,7 +11,10 @@ import type {
   SourceSpecification,
 } from "maplibre-gl";
 import { ensurePmtilesProtocol } from "../pmtiles";
-import { createProtomapsStyle } from "./basemap/protomaps";
+import {
+  createProtomapsStyle,
+  PROTOMAPS_ATTRIBUTION,
+} from "./basemap/protomaps";
 import type { ProtomapsBasemapOptions } from "./basemap/protomaps";
 
 export interface MapControllerOptions {
@@ -39,19 +46,35 @@ export class MapController {
   private hudEl: HTMLDivElement | null = null;
   private hudUpdate: (() => void) | null = null;
   private navControlEl: NavigationControl | null = null;
+  private attributionControl: AttributionControl | null = null;
+  private currentAttribution: string;
   private disposed = false;
   private currentBasemap: ProtomapsBasemapOptions;
 
   constructor(container: HTMLElement, options: MapControllerOptions) {
     ensurePmtilesProtocol();
     this.currentBasemap = options.basemap;
+    // maplibre 5.24's built-in attribution control injects a hardcoded
+    // "MapLibre" link (its default customAttribution) merged with source
+    // attributions into one control. We disable it and add our own control
+    // carrying the basemap attribution: the source's identical string is
+    // deduped by the control's own logic, so exactly one segment is shown.
+    // Owning the control also lets setStyle keep it in sync on runtime
+    // attribution changes (customAttribution is fixed at construction).
+    this.currentAttribution =
+      options.basemap.attribution ?? PROTOMAPS_ATTRIBUTION;
     this.map = new MapLibreMap({
       container,
       style: createProtomapsStyle(options.basemap),
       center: options.center,
       zoom: options.zoom,
       maxBounds: options.maxBounds,
+      attributionControl: false,
     });
+    this.attributionControl = this.createAttributionControl(
+      this.currentAttribution,
+    );
+    this.map.addControl(this.attributionControl, "bottom-right");
 
     if (options.navControl !== false) {
       this.navControlEl = new NavigationControl();
@@ -86,12 +109,42 @@ export class MapController {
     const apply = () => {
       if (this.disposed) return;
       this.map.setStyle(createProtomapsStyle(basemap));
+      this.syncAttribution(basemap.attribution ?? PROTOMAPS_ATTRIBUTION);
     };
     if (this.map.isStyleLoaded()) {
       apply();
     } else {
       this.map.once("style.load", apply);
     }
+  }
+
+  /**
+   * Keep the attribution control's customAttribution in sync with the current
+   * style. customAttribution is fixed at control construction, so a runtime
+   * attribution change requires recreating the control; the recreated control
+   * recomputes from the new string plus the new style's source attributions
+   * (identical → deduped to a single segment). No-op when unchanged.
+   *
+   * Note: the swap can momentarily show two segments when it races an async
+   * style load — the recreated control pairs the new customAttribution with
+   * the still-live old style until `styledata` fires on load.
+   */
+  private syncAttribution(attribution: string): void {
+    if (this.currentAttribution === attribution || !this.attributionControl) {
+      return;
+    }
+    this.currentAttribution = attribution;
+    this.map.removeControl(this.attributionControl);
+    this.attributionControl = this.createAttributionControl(attribution);
+    this.map.addControl(this.attributionControl, "bottom-right");
+  }
+
+  /** Attribution control for a given string (compact, single custom segment). */
+  private createAttributionControl(attribution: string): AttributionControl {
+    return new AttributionControl({
+      compact: true,
+      customAttribution: attribution,
+    });
   }
 
   /** Show/hide the navigation control at runtime (does not recreate the map). */
@@ -149,6 +202,7 @@ export class MapController {
     // appended to the container (e.g. the HUD) — remove them explicitly.
     this.setShowCenterHud(false);
     this.map.remove();
+    this.attributionControl = null;
     this.disposed = true;
   }
 
