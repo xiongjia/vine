@@ -114,12 +114,23 @@ w.flyTo({ center, zoom }); // camera (queued until ready)
 w.destroy(); // unmount + release the map
 ```
 
-The widget is built as a self-contained ESM bundle (React + MapLibre bundled):
+The widget is built with react / maplibre / pmtiles **externalized**: the
+bundle keeps bare imports that the host page resolves through an import map
+(react, react-dom, maplibre-gl, pmtiles, @protomaps/basemaps), so the heavy
+libraries can be served from any CDN (jsdelivr `+esm` pinned versions by
+default — required for react / react-dom, which ship CJS only):
 
 ```bash
 pnpm exec turbo run build:widget --filter=@vine/ui
-# → packages/ui/dist/widget/map-widget.js (+ map-widget.css)
+# → packages/ui/dist/widget/map-widget-<hash>.js|css, import-map-<hash>.json, widget.json
 ```
+
+Files are content-hashed (`map-widget-ba8b6886988e.js`), so the filename
+changes whenever the bundle changes and a stale cached copy is never served.
+`widget.json` is the manifest consumers actually read: entry/css names,
+per-file hashes, pinned dependency versions and the ready-to-paste import map.
+The host page includes `<script type="importmap">…</script>` (any entry can be
+overridden with a different CDN) before importing the hashed entry module.
 
 ## 6. Version & Compatibility Notes
 

@@ -159,7 +159,8 @@ Key pieces:
   overridable attribution.
 - **Widget** (`packages/ui/src/widget.tsx`) — `createMapWidget(el, options)`
   mounts the same MapView into any element; built by `build:widget` into a
-  self-contained ESM bundle (`dist/widget/map-widget.js|css`).
+  small ESM bundle with react/maplibre/pmtiles externalized
+  (`dist/widget/map-widget-<hash>.js|css` + `widget.json` manifest).
 - **Local cache** (`.maps-cache/`) — pmtiles files + glyph PBFs, served by the
   Vite plugins in dev; never committed.
 

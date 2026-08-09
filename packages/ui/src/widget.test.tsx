@@ -1,10 +1,20 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const unmount = vi.fn();
-const renderMock = vi.fn();
+const { renderMock, createdRoots } = vi.hoisted(() => {
+  const createdRoots: Array<{
+    render: ReturnType<typeof vi.fn>;
+    unmount: ReturnType<typeof vi.fn>;
+  }> = [];
+  return { renderMock: vi.fn(), createdRoots };
+});
+
 vi.mock("react-dom/client", () => ({
-  createRoot: vi.fn(() => ({ render: renderMock, unmount })),
+  createRoot: vi.fn(() => {
+    const root = { render: renderMock, unmount: vi.fn() };
+    createdRoots.push(root);
+    return root;
+  }),
 }));
 vi.mock("./components/ui/map-view", () => ({
   MapView: () => null,
@@ -14,7 +24,7 @@ import { createMapWidget } from "./widget";
 
 beforeEach(() => {
   renderMock.mockClear();
-  unmount.mockClear();
+  createdRoots.length = 0;
 });
 
 describe("createMapWidget", () => {
@@ -43,6 +53,49 @@ describe("createMapWidget", () => {
     const el = document.createElement("div");
     const w = createMapWidget(el, { basemapUrl: "pmtiles:///shanghai" });
     w.destroy();
-    expect(unmount).toHaveBeenCalledTimes(1);
+    expect(createdRoots[0]!.unmount).toHaveBeenCalledTimes(1);
+  });
+
+  it("unmounts a previous root before re-mounting the same container", () => {
+    const el = document.createElement("div");
+    createMapWidget(el, { basemapUrl: "pmtiles:///shanghai" });
+    const second = createMapWidget(el, { basemapUrl: "pmtiles:///tokyo" });
+
+    expect(createdRoots).toHaveLength(2);
+    // The first root must be unmounted by the guard, not left to stack a
+    // second MapView / MapLibre map inside the same container.
+    expect(createdRoots[0]!.unmount).toHaveBeenCalledTimes(1);
+    expect(createdRoots[1]!.unmount).not.toHaveBeenCalled();
+
+    second.destroy();
+    expect(createdRoots[1]!.unmount).toHaveBeenCalledTimes(1);
+    // The stale first root is not double-unmounted.
+    expect(createdRoots[0]!.unmount).toHaveBeenCalledTimes(1);
+  });
+
+  it("a stale widget destroy never unmounts a newer root on the same container", () => {
+    const el = document.createElement("div");
+    const first = createMapWidget(el, { basemapUrl: "pmtiles:///shanghai" });
+    const second = createMapWidget(el, { basemapUrl: "pmtiles:///tokyo" });
+
+    first.destroy();
+    expect(createdRoots[1]!.unmount).not.toHaveBeenCalled();
+
+    second.destroy();
+    expect(createdRoots[1]!.unmount).toHaveBeenCalledTimes(1);
+  });
+
+  it("can re-mount a container after its widget was destroyed", () => {
+    const el = document.createElement("div");
+    const first = createMapWidget(el, { basemapUrl: "pmtiles:///shanghai" });
+    first.destroy();
+
+    const second = createMapWidget(el, { basemapUrl: "pmtiles:///tokyo" });
+    expect(createdRoots).toHaveLength(2);
+    // destroy already cleared the registry entry, so no stale unmount fires.
+    expect(createdRoots[0]!.unmount).toHaveBeenCalledTimes(1);
+    expect(createdRoots[1]!.unmount).not.toHaveBeenCalled();
+    second.destroy();
+    expect(createdRoots[1]!.unmount).toHaveBeenCalledTimes(1);
   });
 });

@@ -16,6 +16,7 @@
  * required) and the glyph PBFs — both are plain URL parameters.
  */
 import { createRoot } from "react-dom/client";
+import type { Root } from "react-dom/client";
 import { createElement } from "react";
 import type { Map as MapLibreMap, MapEventType } from "maplibre-gl";
 import { MapView } from "./components/ui/map-view";
@@ -109,11 +110,20 @@ function WidgetRoot({
   });
 }
 
+// A container can only ever host one React root. React 18 treats a second
+// createRoot on an already-mounted container as undefined behavior: the old
+// root is not unmounted, so both roots render and stack a second MapView /
+// MapLibre map (duplicated attribution controls). Track roots per container
+// and unmount the previous one before mounting a fresh root.
+const roots = new WeakMap<HTMLElement, Root>();
+
 export function createMapWidget(
   container: HTMLElement,
   options: MapWidgetOptions,
 ): MapWidget {
+  roots.get(container)?.unmount();
   const root = createRoot(container);
+  roots.set(container, root);
   const mapRef: { current: MapLibreMap | null } = { current: null };
   const pendingFly: Array<{
     center?: [number, number];
@@ -171,6 +181,10 @@ export function createMapWidget(
       mapRef.current = null;
       readyBasemapUrl = null;
       pendingFly.length = 0;
+      // Only clear the registry entry if it still points at this root — a
+      // stale widget must never unmount (or unregister) a newer widget that
+      // was created on the same container afterwards.
+      if (roots.get(container) === root) roots.delete(container);
       root.unmount();
     },
   };

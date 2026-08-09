@@ -10,7 +10,7 @@ any S3-compatible provider). There is no npm publishing.
 
 | Asset         | Source                                                               | Remote prefix   |
 | ------------- | -------------------------------------------------------------------- | --------------- |
-| Widget bundle | `packages/ui/dist/widget/map-widget.{js,css}`                        | `vine/widget/`  |
+| Widget bundle | `packages/ui/dist/widget/map-widget-<hash>.{js,css}` + `widget.json` | `vine/widget/`  |
 | Region tiles  | `.maps-cache/pmtiles/*.pmtiles` + `*.metadata.json` + `pmtiles.json` | `vine/pmtiles/` |
 | Glyph fonts   | `.maps-cache/glyphs/**`                                              | `vine/glyphs/`  |
 
@@ -71,7 +71,7 @@ the default storage root, configurable via `--root <dir>` or
 ```
 v/ (bucket root)
 └── vine/                          # storage root (default; override with --root / VINE_STORAGE_ROOT)
-    ├── widget/                    # widget bundle (map-widget.js + map-widget.css)
+    ├── widget/                    # widget bundle (hashed js/css + widget.json manifest)
     ├── pmtiles/
     │   ├── pmtiles.json           # catalog: every region + its .pmtiles file (discovery entry point)
     │   ├── shanghai.pmtiles
@@ -83,6 +83,13 @@ v/ (bucket root)
             ├── 12288-12543.pbf
             └── …
 ```
+
+Widget files are content-hashed, so each release uploads **new** filenames and
+old versions accumulate in `vine/widget/` (harmless — `widget.json` always
+points at the current set — but they add up across releases). Prune them with
+an R2 cache/lifecycle rule on `vine/widget/` or by deleting the stale keys
+manually; a maps-cli `--prune` (delete remote widget objects not listed in the
+local `widget.json`) is a planned follow-up.
 
 The storage root is configurable — pass `--root <dir>` to `sync-assets` /
 `upload` / `rm`, or set `VINE_STORAGE_ROOT` in the environment:
@@ -311,12 +318,55 @@ What `<bucket-domain>` is, per provider:
 
 ## 5. Static-file distribution (no object storage)
 
-Hand the widget bundle to a host that serves the pmtiles (Range) and glyphs:
+Hand the `widget.json` manifest to a host that serves the pmtiles (Range),
+glyphs and the hashed files. The widget's react / maplibre / pmtiles deps are
+externalized, so the page must resolve them with an import map — take the
+ready-to-paste one from `widget.json` and override any entry to use a
+different CDN. The manifest lists each dependency with its pinned version and
+CDN URL:
+
+```json
+{
+  "version": "0.0.0",
+  "entry": "map-widget-ba8b6886988e.js",
+  "css": "map-widget-6d4cf0bf511b.css",
+  "files": [
+    {
+      "name": "map-widget-ba8b6886988e.js",
+      "hash": "ba8b6886988e675a87a1c31c965f27b45a94e3f66f559c5dc16eda42669867ad",
+      "size": 7884
+    }
+  ],
+  "dependencies": {
+    "react": {
+      "version": "19.2.7",
+      "cdn": "https://cdn.jsdelivr.net/npm/react@19.2.7/+esm"
+    }
+  },
+  "importMap": {
+    "react": "https://cdn.jsdelivr.net/npm/react@19.2.7/+esm"
+  }
+}
+```
+
+A minimal host page:
 
 ```html
-<link rel="stylesheet" href="map-widget.css" />
+<link rel="stylesheet" href="map-widget-<hash>.css" />
+<script type="importmap">
+  {
+    "imports": {
+      "react": "https://cdn.jsdelivr.net/npm/react@19.2.7/+esm",
+      "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@19.2.7/jsx-runtime/+esm",
+      "react-dom/client": "https://cdn.jsdelivr.net/npm/react-dom@19.2.7/client/+esm",
+      "maplibre-gl": "https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/+esm",
+      "pmtiles": "https://cdn.jsdelivr.net/npm/pmtiles@4.4.1/+esm",
+      "@protomaps/basemaps": "https://cdn.jsdelivr.net/npm/@protomaps/basemaps@5.7.2/+esm"
+    }
+  }
+</script>
 <script type="module">
-  import { createMapWidget } from "./map-widget.js";
+  import { createMapWidget } from "./map-widget-<hash>.js";
   const w = createMapWidget(el, {
     basemapUrl: "pmtiles:///pmtiles/shanghai.pmtiles", // host serves this
     glyphsUrl: "/glyphs/{fontstack}/{range}.pbf",
@@ -326,7 +376,13 @@ Hand the widget bundle to a host that serves the pmtiles (Range) and glyphs:
 </script>
 ```
 
-Version the bundle for upgrades, e.g. `map-widget@1.2.0.js`.
+The `+esm` suffix is jsdelivr's ESM transform — react / react-dom ship CJS
+only, so a raw file server (e.g. unpkg) cannot serve them as ESM; maplibre /
+pmtiles / protomaps also resolve through the same CDN for one consistent
+source. The bundle itself is terser-minified (single line, fully mangled) and
+content-hashed, so `widget.json` is the version marker: a new build changes
+the entry filename (browsers never serve a stale cached copy) and the manifest
+lists the exact dependency versions the bundle was built against.
 
 ## 6. GitHub Pages deployment
 
@@ -339,7 +395,7 @@ one-time variable configuration.
 The plain-HTML example at `/vine/examples/embed.html` is emitted at build time
 by the demo's `embed-html` vite plugin (`apps/demo/vite-embed-html.ts`) and gets
 the **same** injected URLs: the widget bundle is referenced from
-`<bucket-domain>/vine/widget/map-widget.{js,css}` (derived from
+`<bucket-domain>/vine/widget/` via the hashed names in `widget.json` (derived from
 `VITE_PMTILES_URL_PREFIX`, same storage root as the tiles) and the basemaps /
 glyphs from `vine/pmtiles/` / `vine/glyphs/`. So besides the two variables, the
 bucket must contain the widget bundle (`sync-assets --only widget`) for the
