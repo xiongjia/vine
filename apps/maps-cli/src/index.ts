@@ -157,6 +157,10 @@ program
     [] as string[],
   )
   .option("--dry-run", "print only, do not sync")
+  .option(
+    "--prune-widget",
+    "delete widget objects not referenced by the remote widget.json (combine with --dry-run to preview)",
+  )
   .action(
     async (opts: {
       storage: "r2" | "s3";
@@ -165,6 +169,7 @@ program
       prefix?: string;
       only?: string[];
       dryRun?: boolean;
+      pruneWidget?: boolean;
     }) => {
       await syncAssets(opts);
     },
