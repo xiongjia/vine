@@ -110,5 +110,6 @@ accordingly.
 - **`/vine/examples/embed.html` 404s or renders empty**: the page is emitted at
   build time (dev/preview serve it from `apps/demo/examples/embed.html` via the
   `embed-html` plugin middleware) — rebuild after touching it, and verify the
-  page's `map-widget.js` / `pmtiles://` / glyph URLs point at the bucket
+  page's widget bundle (hashed names resolved via `widget.json`), its
+  `pmtiles://` / glyph URLs point at the bucket
   (`vine/widget/`, `vine/pmtiles/`, `vine/glyphs/`).

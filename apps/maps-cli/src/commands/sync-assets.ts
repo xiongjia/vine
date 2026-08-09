@@ -66,7 +66,7 @@ export interface SyncOptions {
 
 /**
  * Sync publishable assets to R2/S3 in one pass (publish option B):
- *   - packages/ui/dist/widget/ (map-widget.js + css)
+ *   - packages/ui/dist/widget/ (hashed map-widget-* files + widget.json)
  *   - .maps-cache/pmtiles/* (incl. metadata.json + pmtiles.json)
  *   - .maps-cache/glyphs/*
  *

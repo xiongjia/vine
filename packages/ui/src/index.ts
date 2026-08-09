@@ -30,8 +30,18 @@ export { Input } from "./components/ui/input";
 export { Content } from "./components/ui/content";
 export { MapView } from "./components/ui/map-view";
 export type { MapViewProps } from "./components/ui/map-view";
-export type { MarkerSpec, TrackSpec, MapFlavor } from "./components/ui/map-view";
-export { shanghaiMarkers, shanghaiTracks, tokyoMarkers, tokyoTracks } from "./lib/sample-data";
+export type {
+  MarkerSpec,
+  TrackSpec,
+  MapFlavor,
+} from "./components/ui/map-view";
+export {
+  shanghaiMarkers,
+  shanghaiTracks,
+  tokyoMarkers,
+  tokyoTracks,
+} from "./lib/sample-data";
+export type { WidgetManifest, WidgetManifestFile } from "./lib/widget-manifest";
 export {
   Sheet,
   SheetPortal,
@@ -53,7 +63,11 @@ export {
   SidebarProvider,
   SidebarSeparator,
 } from "./components/ui/sidebar";
-export { ThemeToggle, ThemeProvider, useTheme } from "./components/ui/theme-toggle";
+export {
+  ThemeToggle,
+  ThemeProvider,
+  useTheme,
+} from "./components/ui/theme-toggle";
 export {
   Tooltip,
   TooltipTrigger,

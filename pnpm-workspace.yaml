@@ -14,6 +14,7 @@ catalog:
 
   # Vite
   vite: ^6.3.5
+  terser: ^5.39.0
   "@vitejs/plugin-react": ^4.5.0
 
   # Tailwind CSS

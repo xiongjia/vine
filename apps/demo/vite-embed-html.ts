@@ -9,6 +9,11 @@
  * variables, see docs/ci.md); the widget URLs are derived from the pmtiles
  * prefix because the bundle lives in the same storage root.
  *
+ * The widget build (`build:widget`) emits content-hashed files plus a
+ * `widget.json` manifest (entry/css names + the ready-to-use import map for
+ * the externalized react / maplibre / pmtiles deps) — this plugin reads that
+ * manifest and injects the hashed URLs and the import map into the template.
+ *
  * - dev: middleware serves the template at `<base>examples/embed.html` with
  *   same-origin URLs backed by the local plugins
  * - build: emits `examples/embed.html` into dist with the env-injected URLs
@@ -19,11 +24,15 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Connect, Plugin } from "vite";
+import type { WidgetManifest } from "@vine/ui/widget-manifest";
+
+export type { WidgetManifest };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const WIDGET_CSS_TOKEN = "__VINE_WIDGET_CSS__";
 export const WIDGET_JS_TOKEN = "__VINE_WIDGET_JS__";
+export const WIDGET_IMPORT_MAP_TOKEN = "__VINE_WIDGET_IMPORT_MAP__";
 export const PMTILES_PREFIX_TOKEN = "__VINE_PMTILES_PREFIX__";
 export const GLYPHS_URL_TOKEN = "__VINE_GLYPHS_URL__";
 
@@ -40,36 +49,64 @@ export function storageRoot(pmtilesPrefix: string): string {
     .replace(/\/pmtiles\/?$/, "");
 }
 
+/** Read the widget manifest from a built `dist/widget` directory. */
+export function readWidgetManifest(widgetDir: string): WidgetManifest {
+  const manifestPath = path.join(widgetDir, "widget.json");
+  try {
+    return JSON.parse(readFileSync(manifestPath, "utf8")) as WidgetManifest;
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    const cause =
+      err.code === "ENOENT"
+        ? `no ${manifestPath} — run "pnpm exec turbo run build:widget --filter=@vine/ui" first`
+        : `invalid ${manifestPath}: ${err.message}`;
+    throw new Error(cause);
+  }
+}
+
 export interface EmbedHtmlUrls {
   widgetCss: string;
   widgetJs: string;
+  /** JSON text for `<script type="importmap">`, HTML-escaped (externalized deps). */
+  widgetImportMapJson: string;
   pmtilesPrefix: string;
   glyphs: string;
 }
 
-/** Resolve the four URLs from build-time env, falling back to dev defaults. */
+/**
+ * Resolve the URLs from build-time env + the widget manifest, falling back to
+ * dev defaults for the tile/glyph URLs. `manifest` is injectable for tests.
+ */
 export function embedHtmlUrls(
   env: Record<string, string | undefined>,
+  manifest: WidgetManifest,
 ): EmbedHtmlUrls {
   const prefix = env.VITE_PMTILES_URL_PREFIX ?? DEFAULT_PMTILES_PREFIX;
   const root = storageRoot(prefix);
   return {
-    widgetCss: `${root}/widget/map-widget.css`,
-    widgetJs: `${root}/widget/map-widget.js`,
+    widgetCss: `${root}/widget/${manifest.css}`,
+    widgetJs: `${root}/widget/${manifest.entry}`,
+    // Escape `<` so a malicious import-map value can never close the
+    // surrounding `<script>` tag inside the injected template.
+    widgetImportMapJson: JSON.stringify(manifest.importMap).replace(
+      /</g,
+      "\\u003c",
+    ),
     pmtilesPrefix: prefix,
     glyphs: env.VITE_GLYPHS_URL ?? DEFAULT_GLYPHS_URL,
   };
 }
 
 /**
- * Substitute the four URL tokens in the template. split/join is used instead
- * of `String.prototype.replace` so `$` sequences in the injected URLs (legal
- * in URLs, e.g. `$&`) are never interpreted as replacement patterns.
+ * Substitute the URL tokens in the template. split/join is used instead of
+ * `String.prototype.replace` so `$` sequences in the injected URLs (legal in
+ * URLs, e.g. `$&`) are never interpreted as replacement patterns.
  */
 export function renderEmbedHtml(template: string, urls: EmbedHtmlUrls): string {
   const tokens: Array<[string, string]> = [
     [WIDGET_CSS_TOKEN, urls.widgetCss],
     [WIDGET_JS_TOKEN, urls.widgetJs],
+    [WIDGET_IMPORT_MAP_TOKEN, urls.widgetImportMapJson],
     [PMTILES_PREFIX_TOKEN, urls.pmtilesPrefix],
     [GLYPHS_URL_TOKEN, urls.glyphs],
   ];
@@ -83,16 +120,30 @@ export function renderEmbedHtml(template: string, urls: EmbedHtmlUrls): string {
 export function embedHtmlPlugin(
   templatePath: string,
   env: Record<string, string | undefined>,
+  widgetDir: string,
 ): Plugin {
-  const render = () =>
-    renderEmbedHtml(readFileSync(templatePath, "utf8"), embedHtmlUrls(env));
+  // Read the manifest on every render so a rebuilt widget (dev) is picked up
+  // without restarting the dev server; missing/invalid manifests surface as a
+  // clear error at the point of use instead of a silent 404.
+  const render = () => {
+    const manifest = readWidgetManifest(widgetDir);
+    return renderEmbedHtml(
+      readFileSync(templatePath, "utf8"),
+      embedHtmlUrls(env, manifest),
+    );
+  };
 
   let mountPath = "/examples/embed.html";
   const serve: Connect.NextHandleFunction = (req, res, next) => {
     const url = (req.url ?? "").split("?")[0] ?? "";
     if (url !== mountPath) return next();
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.end(render());
+    try {
+      res.end(render());
+    } catch (error) {
+      res.statusCode = 500;
+      res.end(`<pre>${(error as Error).message}</pre>`);
+    }
   };
 
   return {

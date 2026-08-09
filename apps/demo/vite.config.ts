@@ -29,7 +29,11 @@ export default defineConfig(({ mode }) => {
           "",
       ),
       widgetDistPlugin(path.join(repoRoot, "packages/ui/dist/widget")),
-      embedHtmlPlugin(embedHtmlTemplatePath(), env),
+      embedHtmlPlugin(
+        embedHtmlTemplatePath(),
+        env,
+        path.join(repoRoot, "packages/ui/dist/widget"),
+      ),
     ],
     base: "/vine/",
     build: {

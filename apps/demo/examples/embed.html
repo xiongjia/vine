@@ -72,10 +72,13 @@
         font-size: 12px;
       }
     </style>
-    <!-- __VINE_WIDGET_CSS__ / __VINE_WIDGET_JS__ / __VINE_PMTILES_PREFIX__ /
-         __VINE_GLYPHS_URL__ are injected at build time (dev: same-origin vite
-         plugin mounts; hosted build: R2 URLs from VITE_PMTILES_URL_PREFIX /
-         VITE_GLYPHS_URL). -->
+    <!-- __VINE_WIDGET_CSS__ / __VINE_WIDGET_JS__ / __VINE_WIDGET_IMPORT_MAP__ /
+         __VINE_PMTILES_PREFIX__ / __VINE_GLYPHS_URL__ are injected at build
+         time (dev: same-origin vite plugin mounts; hosted build: R2 URLs from
+         VITE_PMTILES_URL_PREFIX / VITE_GLYPHS_URL). The import map below
+         resolves the widget's externalized deps (react / maplibre / pmtiles)
+         to pinned CDN URLs — override any entry to serve them from your own
+         CDN. -->
     <link rel="stylesheet" href="__VINE_WIDGET_CSS__" />
   </head>
   <body>
@@ -114,11 +117,14 @@
     <div class="info">
       <h1>createMapWidget — plain HTML, no React</h1>
       <p>
-        The map above is a self-contained widget (<code>map-widget.js</code>)
+        The map above is a widget (<code>map-widget-&lt;hash&gt;.js</code>)
         mounted with
-        <code>createMapWidget(el, options)</code>. The widget URL, pmtiles
-        basemap and glyphs are injected at build time — same-origin in
-        dev/preview, R2-hosted on the deployed site.
+        <code>createMapWidget(el, options)</code>. Its react / maplibre /
+        pmtiles deps are externalized and resolved by the
+        <code>&lt;script type="importmap"&gt;</code> above — swap any entry to
+        serve them from your own CDN. The widget URL, pmtiles basemap and glyphs
+        are injected at build time — same-origin in dev/preview, R2-hosted on
+        the deployed site.
       </p>
       <p>
         <strong>☕ Switch markers</strong> — calls
@@ -138,6 +144,9 @@
         the new pmtiles file.
       </p>
     </div>
+    <script type="importmap">
+      __VINE_WIDGET_IMPORT_MAP__
+    </script>
     <script type="module">
       import { createMapWidget } from "__VINE_WIDGET_JS__";
 

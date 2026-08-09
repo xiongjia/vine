@@ -1,7 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 
-// jsdom polyfills
-if (typeof window.matchMedia === "undefined") {
+// jsdom polyfills (the widget build test runs in the node environment, which
+// has no window — skip the polyfill there)
+if (typeof window !== "undefined" && typeof window.matchMedia === "undefined") {
   Object.defineProperty(window, "matchMedia", {
     value: (query: string) => ({
       matches: false,
