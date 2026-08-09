@@ -4,10 +4,16 @@ import {
   storageConfig,
   storageRoot,
   loadEnv,
+  type StorageConfig,
   type StorageKind,
 } from "../lib/config";
 import { findRepoRoot, glyphsDir, pmtilesDir } from "../lib/repo-root";
-import { uploadDir } from "../lib/storage";
+import {
+  deleteObject,
+  getObject,
+  listObjects,
+  uploadDir,
+} from "../lib/storage";
 
 /** Publishable asset kinds, each mapped to one remote `vine/<kind>/` subtree. */
 export const ASSET_KINDS = ["widget", "pmtiles", "glyphs"] as const;
@@ -62,6 +68,8 @@ export interface SyncOptions {
   /** Asset kinds to sync (default: all). */
   only?: string[];
   dryRun?: boolean;
+  /** Delete widget objects not referenced by the remote widget.json manifest. */
+  pruneWidget?: boolean;
 }
 
 /**
@@ -125,4 +133,95 @@ export async function syncAssets(opts: SyncOptions): Promise<void> {
       `✓ ${synced.length === ASSET_KINDS.length ? "all assets" : synced.join(", ")} synced to s3://${cfg.bucket}/${prefix}/`,
     );
   }
+
+  if (opts.pruneWidget) {
+    await pruneWidget(cfg, prefix, opts.dryRun ?? false);
+  }
+}
+
+/** Basename of a storage key (everything after the last `/`). */
+const basename = (key: string): string => key.slice(key.lastIndexOf("/") + 1);
+
+export interface WidgetPrunePlan {
+  /** Bare filenames that must be kept (manifest entry/css/files + widget.json). */
+  keep: Set<string>;
+  /** Full keys (prefix included) that are safe to delete. */
+  orphans: string[];
+}
+
+/**
+ * Compute which remote widget objects are orphans: anything not referenced by
+ * the published widget.json manifest (entry, css and the files[] list) plus
+ * the manifest itself. Without a valid manifest nothing is known-live, so
+ * every key is kept — a missing or unparseable manifest must never trigger
+ * deletions.
+ */
+export function computeWidgetPrune(
+  manifestRaw: string | null,
+  keys: string[],
+): WidgetPrunePlan {
+  if (manifestRaw === null) {
+    return { keep: new Set(keys.map(basename)), orphans: [] };
+  }
+  let manifest: {
+    entry?: string;
+    css?: string;
+    files?: Array<{ name: string }>;
+  };
+  try {
+    manifest = JSON.parse(manifestRaw);
+  } catch {
+    return { keep: new Set(keys.map(basename)), orphans: [] };
+  }
+  const keep = new Set<string>([
+    "widget.json",
+    ...(manifest.entry ? [manifest.entry] : []),
+    ...(manifest.css ? [manifest.css] : []),
+    ...(manifest.files ?? []).map((f) => f.name),
+  ]);
+  return { keep, orphans: keys.filter((k) => !keep.has(basename(k))) };
+}
+
+/**
+ * Delete remote widget objects no longer referenced by the published
+ * widget.json. Runs after the sync loop so the freshly uploaded manifest is
+ * authoritative. A missing manifest aborts the prune (nothing is known-live).
+ */
+async function pruneWidget(
+  cfg: StorageConfig,
+  prefix: string,
+  dryRun: boolean,
+): Promise<void> {
+  const widgetPrefix = `${prefix}/widget/`;
+  const keys = await listObjects(cfg, widgetPrefix);
+  if (keys.length === 0) {
+    console.log(`⚠ ${widgetPrefix} has no objects — nothing to prune`);
+    return;
+  }
+  const manifestKey = `${widgetPrefix}widget.json`;
+  const manifestRaw = await getObject(cfg, manifestKey);
+  if (manifestRaw === null) {
+    console.log(
+      `⚠ no widget.json manifest at ${manifestKey} — skipping prune (nothing is known-live)`,
+    );
+    return;
+  }
+  const { orphans } = computeWidgetPrune(manifestRaw, keys);
+  if (orphans.length === 0) {
+    console.log(
+      `✓ no orphaned widget files (${keys.length} objects, all referenced)`,
+    );
+    return;
+  }
+  console.log(
+    `pruning ${orphans.length} orphaned widget file(s), keeping ${keys.length - orphans.length}`,
+  );
+  for (const key of orphans) {
+    await deleteObject(cfg, key, dryRun);
+  }
+  console.log(
+    dryRun
+      ? `[dry-run] ${orphans.length} file(s) would be deleted — re-run without --dry-run to prune`
+      : `✓ pruned ${orphans.length} orphaned widget file(s)`,
+  );
 }

@@ -87,9 +87,8 @@ v/ (bucket root)
 Widget files are content-hashed, so each release uploads **new** filenames and
 old versions accumulate in `vine/widget/` (harmless — `widget.json` always
 points at the current set — but they add up across releases). Prune them with
-an R2 cache/lifecycle rule on `vine/widget/` or by deleting the stale keys
-manually; a maps-cli `--prune` (delete remote widget objects not listed in the
-local `widget.json`) is a planned follow-up.
+`sync-assets --prune-widget` (see below) or an R2 cache/lifecycle rule on
+`vine/widget/`.
 
 The storage root is configurable — pass `--root <dir>` to `sync-assets` /
 `upload` / `rm`, or set `VINE_STORAGE_ROOT` in the environment:
@@ -102,6 +101,26 @@ VINE_STORAGE_ROOT=prod pnpm --filter=@vine/maps-cli cli sync-assets --storage r2
 `--prefix` still exists as a full path override (wins over `--root`):
 `sync-assets --prefix data` / `upload shanghai --prefix data/pmtiles` reproduce
 the pre-`vine` layout.
+
+### Prune old widget versions
+
+Each release uploads new hashed filenames, so old widget files accumulate in
+`vine/widget/` over time. `sync-assets --prune-widget` deletes every object not
+referenced by the **remote** `widget.json` manifest — the manifest itself plus
+its `entry` / `css` / `files[]` are always kept. It runs after the sync loop,
+so the freshly uploaded manifest is the authority:
+
+```bash
+# preview: list what would be deleted (nothing is removed)
+pnpm --filter=@vine/maps-cli cli sync-assets --only widget --prune-widget --dry-run
+
+# actually delete the orphans
+pnpm --filter=@vine/maps-cli cli sync-assets --only widget --prune-widget
+```
+
+Safety: the prune never deletes without a readable remote `widget.json` — a
+missing or unparseable manifest aborts the prune instead of deleting blindly.
+Legacy un-hashed `map-widget.js` / `map-widget.css` count as orphans too.
 
 ## 2. Credentials
 
